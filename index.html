@@ -6,25 +6,38 @@
     <title>Femi Ajo Place | Premium Thrift & Savings</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; background-color: #FAFAF9; }
         
-        /* Premium Color Palette */
-        .bg-ajo-black { background-color: #0F0F0F; }
-        .bg-ajo-brown { background-color: #8B5E3C; } 
-        .text-ajo-brown { color: #8B5E3C; }
-        .border-ajo-brown { border-color: #8B5E3C; }
-        .bg-ajo-brown-dark { background-color: #4A2E19; } 
-        .bg-ajo-cream { background-color: #F5F2F0; }
+        :root {
+            --ajo-black: #0F0F0F;
+            --ajo-brown: #8B5E3C;
+            --ajo-brown-dark: #4A2E19;
+            --ajo-cream: #F5F2F0;
+            --ajo-bg: #FAFAF9;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            scroll-behavior: smooth; 
+            background-color: var(--ajo-bg); 
+            color: #1a1a1a;
+        }
+
+        .bg-ajo-black { background-color: var(--ajo-black); }
+        .bg-ajo-brown { background-color: var(--ajo-brown); } 
+        .text-ajo-brown { color: var(--ajo-brown); }
+        .border-ajo-brown { border-color: var(--ajo-brown); }
+        .bg-ajo-brown-dark { background-color: var(--ajo-brown-dark); } 
+        .bg-ajo-cream { background-color: var(--ajo-cream); }
         
         [v-cloak] { display: none; }
         
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #8B5E3C; border-radius: 10px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d1d1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--ajo-brown); }
         
         .gradient-text {
             background: linear-gradient(135deg, #8B5E3C 0%, #4A2E19 100%);
@@ -33,175 +46,225 @@
         }
 
         .premium-shadow {
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1), 0 4px 10px -5px rgba(139, 94, 60, 0.1);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 10px 20px -10px rgba(139, 94, 60, 0.1);
         }
 
-        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        
-        .hero-section { padding-top: 1rem; padding-bottom: 2rem; }
-        @media (min-width: 1024px) {
-            .hero-section { padding-top: 3rem; padding-bottom: 4rem; }
-        }
-
-        .ledger-scroll {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+        .sidebar-transition { 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
 
         .modal-blur {
-            backdrop-filter: blur(8px);
-            background-color: rgba(15, 15, 15, 0.8);
+            backdrop-filter: blur(12px);
+            background-color: rgba(15, 15, 15, 0.7);
         }
+
+        input:focus, select:focus, textarea:focus {
+            outline: 2px solid var(--ajo-brown);
+            outline-offset: -2px;
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+        
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-active { transform: translateY(0); opacity: 1; transition: all 0.3s ease; }
     </style>
 </head>
-<body class="text-slate-800 antialiased">
+<body class="antialiased">
 
-    <div id="app" class="min-h-screen">
+    <div id="app">
+        <!-- Initial Loading State -->
         <div class="flex items-center justify-center h-screen bg-ajo-black text-white text-center">
-            <div class="space-y-4">
-                <div class="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-ajo-brown"></div>
-                <p class="text-zinc-500 font-bold tracking-widest text-[10px] uppercase">Connecting to Secure Ledger...</p>
+            <div class="space-y-6">
+                <div class="relative w-16 h-16 mx-auto">
+                    <div class="absolute inset-0 border-4 border-ajo-brown/20 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-ajo-brown rounded-full border-t-transparent animate-spin"></div>
+                </div>
+                <div>
+                    <h2 class="text-xs font-black uppercase tracking-[0.4em] text-ajo-brown">Femi Ajo Place</h2>
+                    <p class="text-zinc-500 font-bold tracking-widest text-[10px] uppercase mt-2">Connecting to Secure Ledger...</p>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Notification Toasts -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[200] flex flex-col gap-3"></div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- CONSTANTS ---
+        // --- CONFIG & CONSTANTS ---
         const THRIFT_PLANS = {
             daily: [
-                { id: 'd1', label: '#150 daily pack #5,250', amount: 150, packValue: 5250 },
-                { id: 'd2', label: '#200 daily pack #10,000 section A', amount: 200, packValue: 10000 },
-                { id: 'd3', label: '#200 daily pack #10,000 section B', amount: 200, packValue: 10000 },
-                { id: 'd4', label: '#200 daily pack #10,000 section C', amount: 200, packValue: 10000 },
-                { id: 'd5', label: '#400 daily pack #12,000', amount: 400, packValue: 12000 },
+                { id: 'd1', label: '₦150 daily pack ₦5,250', amount: 150, packValue: 5250 },
+                { id: 'd2', label: '₦200 daily pack ₦10,000 Sec A', amount: 200, packValue: 10000 },
+                { id: 'd3', label: '₦200 daily pack ₦10,000 Sec B', amount: 200, packValue: 10000 },
+                { id: 'd4', label: '₦200 daily pack ₦10,000 Sec C', amount: 200, packValue: 10000 },
+                { id: 'd5', label: '₦400 daily pack ₦12,000', amount: 400, packValue: 12000 },
             ],
             weekly: [
-                { id: 'w1', label: '#300 every Sundays pack #3000', amount: 300, packValue: 3000 },
-                { id: 'w2', label: '#1000 every 3 days pack #20,000', amount: 1000, packValue: 20000 },
-                { id: 'w3', label: '#5000 every 5 days pack #80,000', amount: 5000, packValue: 80000 },
+                { id: 'w1', label: '₦300 every Sundays pack ₦3,000', amount: 300, packValue: 3000 },
+                { id: 'w2', label: '₦1,000 every 3 days pack ₦20,000', amount: 1000, packValue: 20000 },
+                { id: 'w3', label: '₦5,000 every 5 days pack ₦80,000', amount: 5000, packValue: 80000 },
             ],
             monthly: [
-                { id: 'm1', label: '#10,000 monthly pack #70,000', amount: 10000, packValue: 70000 },
-                { id: 'm2', label: '#15,000 monthly pack #90,000', amount: 15000, packValue: 90000 },
-                { id: 'm3', label: '#20,000 monthly pack #100,000', amount: 20000, packValue: 100000 },
-                { id: 'm4', label: '#20,000 monthly pack #120,000 section A', amount: 20000, packValue: 120000 },
-                { id: 'm5', label: '#20,000 monthly pack #120,000 section B', amount: 20000, packValue: 120000 },
-                { id: 'm6', label: '#20,000 monthly pack #120,000 section C', amount: 20000, packValue: 120000 },
-                { id: 'm7', label: '#30,000 monthly pack #150,000', amount: 30000, packValue: 150000 },
-                { id: 'm8', label: '#50,000 monthly pack #300,000 section A', amount: 50000, packValue: 300000 },
-                { id: 'm9', label: '#50,000 monthly pack #300,000 section B', amount: 50000, packValue: 300000 },
-                { id: 'm10', label: '#60,000 monthly pack #300,000', amount: 60000, packValue: 300000 },
-                { id: 'm11', label: '#100,000 monthly pack #500,000', amount: 100000, packValue: 500000 },
-                { id: 'm12', label: '#150,000 monthly pack #600,000', amount: 150000, packValue: 600000 },
-                { id: 'm13', label: '#200,000 monthly pack #1,000,000', amount: 200000, packValue: 1000000 },
+                { id: 'm1', label: '₦10,000 monthly pack ₦70,000', amount: 10000, packValue: 70000 },
+                { id: 'm2', label: '₦15,000 monthly pack ₦90,000', amount: 15000, packValue: 90000 },
+                { id: 'm3', label: '₦20,000 monthly pack ₦100,000', amount: 20000, packValue: 100000 },
+                { id: 'm4', label: '₦20,000 monthly pack ₦120,000 Sec A', amount: 20000, packValue: 120000 },
+                { id: 'm5', label: '₦20,000 monthly pack ₦120,000 Sec B', amount: 20000, packValue: 120000 },
+                { id: 'm6', label: '₦20,000 monthly pack ₦120,000 Sec C', amount: 20000, packValue: 120000 },
+                { id: 'm7', label: '₦30,000 monthly pack ₦150,000', amount: 30000, packValue: 150000 },
+                { id: 'm8', label: '₦50,000 monthly pack ₦300,000 Sec A', amount: 50000, packValue: 300000 },
+                { id: 'm9', label: '₦50,000 monthly pack ₦300,000 Sec B', amount: 50000, packValue: 300000 },
+                { id: 'm10', label: '₦60,000 monthly pack ₦300,000', amount: 60000, packValue: 300000 },
+                { id: 'm11', label: '₦100,000 monthly pack ₦500,000', amount: 100000, packValue: 500000 },
+                { id: 'm12', label: '₦150,000 monthly pack ₦600,000', amount: 150000, packValue: 600000 },
+                { id: 'm13', label: '₦200,000 monthly pack ₦1,000,000', amount: 200000, packValue: 1000000 },
             ]
         };
 
         const SEGMENTS = ['Individual', 'Business', 'Young Children'];
-
-        // --- EMAILJS CONFIG ---
         const EMAILJS_SERVICE_ID = "service_mdkqac1";
         const EMAILJS_SIGNUP_TEMPLATE = "template_h53p6po";
         const EMAILJS_TRANS_TEMPLATE = "template_n0bhew9";
         const EMAILJS_PUBLIC_KEY = "vJ4gRPuC2_7BcxOh-";
 
-        emailjs.init(EMAILJS_PUBLIC_KEY);
+        // Environment Variables
+        const apiKey = ""; // Handled by environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'femi-ajo-v3-prod';
+        const firebaseConfig = JSON.parse(__firebase_config);
 
         // --- STATE ---
         let state = {
-            view: 'landing', 
-            adminActiveView: 'dashboard', 
-            clientActiveView: 'dashboard', 
+            view: 'landing',
+            adminActiveView: 'dashboard',
+            clientActiveView: 'dashboard',
             user: null,
             clients: [],
             transactions: [],
             currentClient: null,
             editingClient: null,
-            showSignupSuccess: false,
-            lastGeneratedId: '',
-            error: '',
-            isSidebarOpen: window.innerWidth > 1024,
-            mobileSidebarOpen: false,
             selectedClientForTrans: null,
+            currentTransType: 'in', // Default to Pay-In
             clientsSearch: '',
-            landingMenuOpen: false
+            showSignupSuccess: false,
+            lastSignupId: '',
+            error: '',
+            mobileSidebarOpen: false,
+            landingMenuOpen: false,
+            isProcessing: false
         };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrn5fdt8n_RmPZmcnxzZsHgV6oqPIY-9o",
-            authDomain: "femiajo-6ed79.firebaseapp.com",
-            projectId: "femiajo-6ed79",
-            storageBucket: "femiajo-6ed79.firebasestorage.app",
-            messagingSenderId: "514997520498",
-            appId: "1:514997520498:web:249209dbb5c0f3d3361aeb",
-            measurementId: "G-QY8SW1KHQZ"
+        let db, auth;
+
+        // --- HELPER FUNCTIONS ---
+        window.showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bg = type === 'success' ? 'bg-ajo-black text-white' : 'bg-red-600 text-white';
+            const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+            
+            toast.className = `px-6 py-4 rounded-2xl ${bg} shadow-2xl flex items-center gap-4 animate-slide-up min-w-[300px] border border-white/10`;
+            toast.innerHTML = `<i data-lucide="${icon}" size="18"></i><span class="text-xs font-bold uppercase tracking-widest">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 3500);
         };
 
-        const appId = 'femi-ajo-production-v3';
-        let app, db, auth;
-
-        // --- GLOBAL LOGIC ATTACHMENTS ---
-        window.navigate = (v) => { 
-            state.view = v; 
-            state.error = ''; 
-            state.mobileSidebarOpen = false; 
+        window.navigate = (v) => {
+            state.view = v;
+            state.error = '';
+            state.mobileSidebarOpen = false;
             state.landingMenuOpen = false;
-            render(); 
-            window.scrollTo(0, 0); 
+            state.showSignupSuccess = false; // Ensure success modal is cleared on any navigation
+            render();
+            window.scrollTo(0, 0);
         };
+
         window.navigateAdmin = (v) => { state.adminActiveView = v; state.mobileSidebarOpen = false; render(); };
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
-        window.handleLogout = () => { state.view = 'landing'; state.currentClient = null; state.mobileSidebarOpen = false; render(); };
         window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; render(); };
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
-        window.closeSignupSuccess = () => { state.showSignupSuccess = false; window.navigate('client-login'); };
+        window.handleLogout = () => {
+            state.view = 'landing';
+            state.currentClient = null;
+            state.mobileSidebarOpen = false;
+            showToast('Logged out successfully');
+            render();
+        };
 
-        // --- CORE FUNCTIONS ---
-        async function initAuth() {
+        window.setTransType = (type) => {
+            state.currentTransType = type;
+            render();
+        };
+
+        // --- CORE LOGIC ---
+        async function initApp() {
             try {
-                app = initializeApp(firebaseConfig);
+                const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                await signInAnonymously(auth);
+
+                // Authentication Protocol (Rule 3)
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
                 onAuthStateChanged(auth, (user) => {
                     state.user = user;
-                    if (user) setupDataListeners();
+                    if (user) setupRealtimeListeners();
                     render();
                 });
-            } catch (err) { showError(err.message); }
+
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+            } catch (err) {
+                console.error(err);
+                state.error = "Failed to connect to secure servers.";
+                render();
+            }
         }
 
-        function setupDataListeners() {
+        function setupRealtimeListeners() {
+            if (!state.user) return;
+
+            // Clients Listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), (snap) => {
                 state.clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            });
+            }, (err) => console.error("Clients Listener Error:", err));
+
+            // Transactions Listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), (snap) => {
                 state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            });
+            }, (err) => console.error("Trans Listener Error:", err));
         }
 
         async function triggerEmails(type, data) {
             try {
-                if(type === 'signup') {
+                if (type === 'signup') {
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_SIGNUP_TEMPLATE, {
                         client_id: data.displayId,
                         to_email: data.email,
                         to_name: data.firstName
                     });
-                    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
-                        name: "Admin",
-                        transaction_type: "Registration",
-                        amount: `New User: ${data.firstName} ${data.lastName} (${data.displayId})`,
-                        to_email: "femiajoplace@gmail.com"
-                    });
-                } else if(type === 'transaction') {
+                } else if (type === 'transaction') {
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
                         name: data.client.firstName,
                         transaction_type: data.type === 'in' ? 'Deposit' : 'Withdrawal',
@@ -209,405 +272,908 @@
                         to_email: data.client.email
                     });
                 }
-            } catch (e) { console.error("EmailJS Error", e); }
-        }
-
-        function handleClientLogin(id) {
-            if(!id) return;
-            const cleanId = id.trim().toUpperCase();
-            const found = state.clients.find(c => c.displayId === cleanId);
-            if (found) { state.currentClient = found; state.view = 'client-dash'; state.error = ''; } 
-            else { state.error = 'Invalid Access ID. Please verify your email.'; }
-            render();
-        }
-
-        function handleAdminLogin(pass) {
-            if (pass === 'admin123') { state.view = 'admin-dash'; state.error = ''; } 
-            else { state.error = 'Access key incorrect.'; }
-            render();
-        }
-
-        // --- DOM ---
-        function render() {
-            const appDiv = document.getElementById('app');
-            let html = '';
-            switch (state.view) {
-                case 'landing': html = renderLanding(); break;
-                case 'signup': html = renderSignup(); break;
-                case 'admin-login': html = renderAdminLogin(); break;
-                case 'client-login': html = renderClientLogin(); break;
-                case 'admin-dash': html = renderDashboardLayout('admin'); break;
-                case 'client-dash': html = renderDashboardLayout('client'); break;
+            } catch (e) {
+                console.error("Email Notice Failed", e);
             }
-            if(state.showSignupSuccess) html += renderSuccessModal();
-            appDiv.innerHTML = html;
-            lucide.createIcons();
-            attachListeners();
         }
 
-        function renderSuccessModal() {
-            return `
-                <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-blur animate-in fade-in duration-300">
-                    <div class="bg-white rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-500">
-                        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i data-lucide="check-circle" class="text-green-500" size="32"></i>
-                        </div>
-                        <h3 class="text-xl font-black text-ajo-black mb-3 uppercase tracking-tighter">Registration confirmed</h3>
-                        <p class="text-zinc-500 text-sm leading-relaxed mb-8">
-                            Your savings portfolio has been initialized. <br>Please check <b>${state.lastGeneratedId}</b> for your unique ID.
-                        </p>
-                        <button onclick="window.closeSignupSuccess()" class="w-full py-4 bg-ajo-black text-white rounded-2xl font-black uppercase tracking-widest text-xs">Continue to Login</button>
-                    </div>
-                </div>`;
+        // --- RENDER ENGINE ---
+        function render() {
+            const root = document.getElementById('app');
+            let content = '';
+
+            switch (state.view) {
+                case 'landing': content = renderLanding(); break;
+                case 'signup': content = renderSignup(); break;
+                case 'admin-login': content = renderAuthForm('admin'); break;
+                case 'client-login': content = renderAuthForm('client'); break;
+                case 'admin-dash': content = renderDashboard('admin'); break;
+                case 'client-dash': content = renderDashboard('client'); break;
+            }
+
+            if (state.showSignupSuccess) content += renderSuccessModal();
+
+            root.innerHTML = content;
+            lucide.createIcons();
+            attachDomEvents();
         }
 
         function renderLanding() {
             return `
                 <div class="min-h-screen bg-white">
-                    <nav class="px-4 sm:px-10 py-4 flex justify-between items-center border-b border-zinc-100 sticky top-0 bg-white/80 backdrop-blur-xl z-50">
+                    <nav class="px-6 md:px-12 py-5 flex justify-between items-center border-b border-zinc-100 sticky top-0 bg-white/80 backdrop-blur-xl z-50">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 bg-ajo-black rounded-lg flex items-center justify-center font-bold text-white shadow-lg">F</div>
-                            <span class="font-black text-lg sm:text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
+                            <div class="w-10 h-10 bg-ajo-black rounded-xl flex items-center justify-center font-black text-white shadow-lg">F</div>
+                            <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
                         </div>
-                        
-                        <!-- Desktop Nav -->
-                        <div class="hidden md:flex items-center gap-8">
-                            <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-ajo-brown transition-colors">Admin Portal</button>
-                            <button onclick="window.navigate('client-login')" class="px-6 py-2.5 bg-ajo-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
+                        <div class="hidden md:flex items-center gap-10">
+                            <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Admin Access</button>
+                            <button onclick="window.navigate('client-login')" class="px-8 py-3 bg-ajo-black text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
                         </div>
-
-                        <!-- Mobile Menu Trigger -->
                         <button onclick="window.toggleLandingMenu()" class="md:hidden p-2 text-ajo-black"><i data-lucide="menu"></i></button>
                     </nav>
 
-                    <!-- Mobile Menu Overlay -->
                     ${state.landingMenuOpen ? `
                     <div class="fixed inset-0 z-[60] bg-ajo-black flex flex-col p-8 animate-in slide-in-from-top duration-300">
-                        <div class="flex justify-between items-center mb-12">
-                            <div class="font-black text-white text-lg">MENU</div>
-                            <button onclick="window.toggleLandingMenu()" class="text-white"><i data-lucide="x"></i></button>
+                        <div class="flex justify-between items-center mb-16">
+                            <div class="font-black text-white text-lg tracking-widest">MENU</div>
+                            <button onclick="window.toggleLandingMenu()" class="text-white p-2 bg-white/10 rounded-full"><i data-lucide="x"></i></button>
                         </div>
-                        <div class="space-y-6 flex-1">
-                            <button onclick="window.navigate('client-login')" class="w-full py-5 bg-white text-ajo-black rounded-2xl font-black uppercase tracking-widest text-xs">Member Login</button>
-                            <button onclick="window.navigate('signup')" class="w-full py-5 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-xs">Create Account</button>
-                            <button onclick="window.navigate('admin-login')" class="w-full py-5 text-zinc-500 font-black uppercase tracking-widest text-xs italic">Admin Access</button>
+                        <div class="space-y-6">
+                            <button onclick="window.navigate('client-login')" class="w-full py-6 bg-white text-ajo-black rounded-2xl font-black uppercase tracking-widest text-[10px]">Member Login</button>
+                            <button onclick="window.navigate('signup')" class="w-full py-6 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Create Portfolio</button>
+                            <button onclick="window.navigate('admin-login')" class="w-full py-6 text-zinc-600 font-black uppercase tracking-widest text-[9px] italic">System Admin</button>
                         </div>
                     </div>` : ''}
 
-                    <div class="max-w-7xl mx-auto px-6 hero-section grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-                        <div class="space-y-5 text-center lg:text-left">
-                            <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-ajo-cream text-ajo-brown rounded-full text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10">
-                                <i data-lucide="award" size="12"></i> 3+ Years Experience
+                    <div class="max-w-7xl mx-auto px-6 lg:px-12 py-12 lg:py-24 grid lg:grid-cols-2 gap-16 items-center">
+                        <div class="space-y-8 text-center lg:text-left">
+                            <div class="inline-flex items-center gap-2 px-5 py-2 bg-ajo-cream text-ajo-brown rounded-full text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10">
+                                <i data-lucide="shield-check" size="14"></i> Tested & Working System
                             </div>
-                            <h1 class="text-5xl sm:text-7xl font-black leading-[1.05] text-ajo-black tracking-tighter">
+                            <h1 class="text-5xl md:text-8xl font-black leading-[1] text-ajo-black tracking-tighter">
                                 Intentional <br><span class="gradient-text">Milestones.</span>
                             </h1>
-                            <p class="text-base sm:text-lg text-zinc-500 max-w-md mx-auto lg:mx-0 leading-relaxed font-medium">
-                                Femi Ajo is a structured financial discipline and goal-execution system helping members use money intentionally to improve their lives.
+                            <p class="text-lg text-zinc-500 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
+                                Femi Ajo is a structured financial discipline and goal-execution system that helps people not only save money, but use it intentionally to improve their lives.
                             </p>
-                            <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
-                                <button onclick="window.navigate('client-login')" class="px-10 py-5 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow flex items-center justify-center gap-2">Member Login <i data-lucide="arrow-right" size="16"></i></button>
-                                <button onclick="window.navigate('signup')" class="px-10 py-5 border-2 border-ajo-black text-ajo-black rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-black hover:text-white transition-all">Create Portfolio</button>
+                            <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
+                                <button onclick="window.navigate('client-login')" class="px-10 py-5 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow flex items-center justify-center gap-3">Member Portal <i data-lucide="arrow-right" size="16"></i></button>
+                                <button onclick="window.navigate('signup')" class="px-10 py-5 border-2 border-ajo-black text-ajo-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-black hover:text-white transition-all">Begin Saving</button>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            ${renderBenefit('shield-check', 'Strong Foundation', 'Built on trust, reliability, and proven execution.')}
-                            ${renderBenefit('layers', 'Organized System', 'Disciplined and transparent thrift coordination.')}
-                            ${renderBenefit('target', 'Purpose Driven', 'Save towards business, rent, or assets.')}
-                            ${renderBenefit('zap', 'Financial Action', 'Converting savings into real-life outcomes.')}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            ${renderFeatureCard('layout', 'Organized Structure', 'A rigid and organized savings system that enforces discipline.')}
+                            ${renderFeatureCard('lock', 'Transparent Trust', 'Transparent processes built on 3 years of consistent, reliable operation.')}
+                            ${renderFeatureCard('target', 'Goal Oriented', 'Save towards specific business, rent, education, assets, or projects.')}
+                            ${renderFeatureCard('zap', 'Proven Execution', 'Not a concept, but a system with real users and real-life outcomes.')}
                         </div>
                     </div>
 
-                    <!-- What We Are Section -->
-                    <section class="bg-ajo-black text-white py-16 rounded-[3.5rem] mx-4 sm:mx-6 shadow-2xl relative overflow-hidden">
-                        <div class="max-w-7xl mx-auto px-10 relative z-10 space-y-16">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 text-center sm:text-left">
-                                <div class="space-y-6">
-                                    <h2 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.3em]">The System</h2>
-                                    <h3 class="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase">What We Are</h3>
-                                    <p class="text-zinc-400 text-sm leading-relaxed">
-                                        Femi Ajo Place is a structured thrift coordination system designed to help individuals and groups save in a disciplined, transparent, and organized manner. With over 3 years of operation and 50+ active clients, we have built a foundation of trust.
+                    <section class="bg-ajo-black text-white py-20 rounded-[4rem] mx-4 md:mx-10 shadow-2xl relative overflow-hidden">
+                        <div class="max-w-6xl mx-auto px-8 relative z-10 space-y-20">
+                            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                                <div class="space-y-8">
+                                    <h3 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.5em]">What We Are</h3>
+                                    <h2 class="text-4xl md:text-5xl font-black tracking-tight text-white uppercase">Purpose-Driven Savings</h2>
+                                    <p class="text-zinc-400 text-lg leading-relaxed">
+                                        Femi Ajo Place is a structured thrift coordination system (Ajo) designed to help individuals and groups save in a disciplined, transparent, and organized manner. We operate a rotational contribution model with real users and results.
                                     </p>
-                                    <div class="flex gap-10 border-t border-white/5 pt-8 justify-center sm:justify-start">
-                                        <div><p class="text-ajo-brown font-black text-4xl tracking-tighter">50+</p><p class="text-[9px] uppercase font-black text-zinc-500 mt-1">Active Clients</p></div>
-                                        <div><p class="text-ajo-brown font-black text-4xl tracking-tighter">3yr</p><p class="text-[9px] uppercase font-black text-zinc-500 mt-1">Execution</p></div>
+                                    <div class="flex gap-12 border-t border-white/5 pt-10">
+                                        <div><p class="text-ajo-brown font-black text-5xl tracking-tighter">50+</p><p class="text-[10px] uppercase font-black text-zinc-500 mt-2 tracking-widest">Active Clients</p></div>
+                                        <div><p class="text-ajo-brown font-black text-5xl tracking-tighter">3yr</p><p class="text-[10px] uppercase font-black text-zinc-500 mt-2 tracking-widest">Consistent Op</p></div>
                                     </div>
                                 </div>
-                                <div class="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] space-y-8">
-                                    <h4 class="font-black text-ajo-brown text-[10px] uppercase tracking-widest text-center sm:text-left">Our Unique Approach</h4>
-                                    <ul class="space-y-4 text-xs text-zinc-300">
-                                        <li class="flex items-start gap-3 text-left"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Save towards Business, Rent, Education, Assets, Projects.</li>
-                                        <li class="flex items-start gap-3 text-left"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Build financial discipline and eliminate waste.</li>
-                                        <li class="flex items-start gap-3 text-left"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Convert consistent savings into real-life progress.</li>
+                                <div class="bg-white/5 border border-white/10 p-10 rounded-[3rem] backdrop-blur-md">
+                                    <h4 class="font-black text-ajo-brown text-[10px] uppercase tracking-widest mb-8">Our Unique Approach</h4>
+                                    <p class="text-zinc-300 text-sm mb-6 leading-relaxed">Beyond simple thrift collection, we deliver a system that helps you use money intentionally:</p>
+                                    <ul class="space-y-6 text-sm">
+                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Save towards specific milestones (Business, Rent, Assets).</li>
+                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Build financial discipline and consistency.</li>
+                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Eliminate unstructured spending habits.</li>
+                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Convert savings into real-life outcomes and progress.</li>
                                     </ul>
                                 </div>
                             </div>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 pt-10 border-t border-white/5 text-center sm:text-left">
-                                <div class="space-y-3"><p class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Mission</p><p class="text-lg font-bold leading-relaxed italic text-zinc-200">"To provide a structured and reliable thrift system that enables individuals to save consistently and achieve milestones."</p></div>
-                                <div class="space-y-3"><p class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Vision</p><p class="text-lg font-bold leading-relaxed italic text-zinc-200">"To become a trusted platform for structured savings, empowering communities through purposeful financial action."</p></div>
+                            <div class="grid md:grid-cols-2 gap-10 pt-16 border-t border-white/5">
+                                <div class="space-y-4">
+                                    <h4 class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Mission Statement</h4>
+                                    <p class="text-xl font-bold italic text-zinc-200">"To provide a structured and reliable thrift system that enables individuals to save consistently, build financial discipline, and achieve meaningful financial goals with confidence."</p>
+                                </div>
+                                <div class="space-y-4">
+                                    <h4 class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Vision Statement</h4>
+                                    <p class="text-xl font-bold italic text-zinc-200">"To become a trusted and widely recognized platform for structured savings, empowering individuals and communities to grow financially through discipline, transparency, and purposeful financial action."</p>
+                                </div>
                             </div>
                         </div>
                     </section>
 
-                    <section class="py-16 max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-                        ${renderValue('Structure', 'Organized')}${renderValue('Trust', 'Transparent')}${renderValue('Discipline', 'Enforced Cycles')}${renderValue('Purpose', 'Goal-Oriented')}${renderValue('Execution', 'Real Results')}
+                    <section class="py-20 max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-10 text-center items-center">
+                        ${renderCoreValue('Structure', 'Organized System')}
+                        ${renderCoreValue('Trust', 'Transparent Processes')}
+                        ${renderCoreValue('Discipline', 'Enforced Cycles')}
+                        ${renderCoreValue('Purpose', 'Goal-Oriented Savings')}
+                        ${renderCoreValue('Execution', 'Real-Life Outcomes')}
                     </section>
 
-                    <section class="max-w-4xl mx-auto px-6 py-12 text-center">
-                        <div class="inline-block px-4 py-2 bg-red-50 text-red-700 text-[10px] font-black uppercase rounded-full mb-4">Regulatory Notice</div>
-                        <p class="text-zinc-500 text-[11px] leading-relaxed italic font-medium">Femi Ajo Place is not a commercial bank. We are a structured savings coordination service.</p>
+                    <section class="max-w-4xl mx-auto px-8 py-16 bg-red-50/30 rounded-[3rem] text-center border border-red-100/50">
+                        <div class="inline-block px-4 py-1 bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest rounded-full mb-6">What We Are Not</div>
+                        <p class="text-zinc-600 text-sm leading-relaxed max-w-2xl mx-auto">
+                            Femi Ajo Place does not operate as a commercial bank, microfinance bank, fintech platform, or cooperative society. We do not engage in lending, interest-based services, or regulated deposit-taking activities.
+                        </p>
                     </section>
 
-                    <footer class="py-10 px-6 text-center border-t border-zinc-50 uppercase tracking-[0.4em] text-zinc-400 text-[9px] font-black">© 2024 Femi Ajo Place Coordination</footer>
-                </div>`;
+                    <footer class="py-20 px-6 text-center border-t border-zinc-100 mt-20">
+                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2024 Femi Ajo Place</p>
+                        <p class="text-[9px] text-zinc-400 max-w-sm mx-auto uppercase font-bold tracking-widest leading-loose">Structured thrift services for disciplined growth. A rotational contribution model for intentional milestones.</p>
+                    </footer>
+                </div>
+            `;
         }
 
-        function renderBenefit(icon, title, desc) {
-            return `<div class="p-6 bg-ajo-cream border border-white rounded-[2rem] text-left"><div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-ajo-brown shadow-sm mb-4"><i data-lucide="${icon}" size="18"></i></div><h3 class="font-black text-ajo-black text-xs mb-1 uppercase tracking-tight">${title}</h3><p class="text-[10px] font-medium text-zinc-400 leading-relaxed">${desc}</p></div>`;
+        function renderFeatureCard(icon, title, desc) {
+            return `
+                <div class="p-8 bg-ajo-cream border border-white rounded-[2.5rem] hover:shadow-xl transition-all group">
+                    <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-ajo-brown shadow-sm mb-6 group-hover:scale-110 transition-transform">
+                        <i data-lucide="${icon}" size="20"></i>
+                    </div>
+                    <h3 class="font-black text-ajo-black text-sm mb-3 uppercase tracking-tight">${title}</h3>
+                    <p class="text-[11px] font-medium text-zinc-500 leading-relaxed">${desc}</p>
+                </div>
+            `;
         }
 
-        function renderValue(t, s) {
-            return `<div><p class="text-ajo-black font-black uppercase text-[10px] tracking-widest mb-1">${t}</p><p class="text-[8px] text-zinc-400 font-bold uppercase">${s}</p></div>`;
+        function renderCoreValue(title, subtitle) {
+            return `
+                <div class="space-y-2">
+                    <p class="text-ajo-black font-black uppercase text-[11px] tracking-[0.2em]">${title}</p>
+                    <p class="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">${subtitle}</p>
+                </div>
+            `;
+        }
+
+        function renderAuthForm(type) {
+            const isAdmin = type === 'admin';
+            return `
+                <div class="min-h-screen bg-ajo-cream flex items-center justify-center p-6">
+                    <div class="w-full max-w-md bg-white rounded-[3rem] p-12 shadow-2xl border border-ajo-brown/5 animate-in zoom-in duration-300">
+                        <div class="text-center mb-10">
+                            <div class="w-12 h-12 bg-ajo-black rounded-2xl flex items-center justify-center font-black text-white shadow-lg mx-auto mb-6">F</div>
+                            <h2 class="text-2xl font-black text-ajo-black tracking-tighter uppercase">${isAdmin ? 'Admin Console' : 'Member Portal'}</h2>
+                            <p class="text-[9px] font-black text-zinc-400 uppercase tracking-widest mt-2">Authorization Required</p>
+                        </div>
+                        <form id="${type}LoginForm" class="space-y-6">
+                            <div class="space-y-2">
+                                <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">${isAdmin ? 'Security Key' : 'Member Access ID'}</label>
+                                <input type="${isAdmin ? 'password' : 'text'}" id="authKey" 
+                                    class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-5 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" 
+                                    placeholder="${isAdmin ? '••••••••' : 'FAJ-XXXX-XXXX'}" required>
+                            </div>
+                            ${state.error ? `<p class="text-red-500 text-[10px] font-bold text-center uppercase tracking-widest">${state.error}</p>` : ''}
+                            <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-ajo-brown transition-all">Verify & Login</button>
+                        </form>
+                        <button onclick="window.navigate('landing')" class="w-full mt-8 text-zinc-400 text-[10px] uppercase font-black tracking-widest hover:text-ajo-black transition-colors">Return Home</button>
+                    </div>
+                </div>
+            `;
         }
 
         function renderSignup() {
-            return `<div class="min-h-screen bg-ajo-cream flex items-center justify-center p-4"><form id="signupForm" class="w-full max-w-2xl bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl border space-y-8 animate-in zoom-in overflow-y-auto max-h-[90vh]"><div class="text-center"><h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Registration</h2><p class="text-[10px] font-bold text-zinc-400 uppercase mt-2">Create your member savings account</p></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-6"><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest ml-2">First Name</label><input type="text" id="sFirst" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest ml-2">Last Name</label><input type="text" id="sLast" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest ml-2">Email Address</label><input type="email" id="sEmail" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest ml-2">Phone Number</label><input type="text" id="sPhone" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest ml-2">Address</label><input type="text" id="sAddr" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div><div class="space-y-4"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Segment</p><div class="flex flex-wrap gap-2">${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-4 py-2 border rounded-xl cursor-pointer has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="sSegments" value="${s}" class="hidden"><span class="text-[10px] font-black uppercase tracking-widest">${s}</span></label>`).join('')}</div></div><div class="space-y-6"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Plan Context</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-2"><h4 class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">${cat}</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-3 border rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50"><input type="checkbox" name="sPlans" value="${p.id}" class="w-4 h-4 accent-ajo-brown"><span class="text-[10px] font-bold text-ajo-black">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all">Submit Enrollment</button><button type="button" onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] font-black uppercase">Cancel</button></form></div>`;
+            return `
+                <div class="min-h-screen bg-ajo-cream py-16 px-6">
+                    <form id="signupForm" class="max-w-3xl mx-auto bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-ajo-brown/5 space-y-12 animate-in zoom-in duration-300">
+                        <div class="text-center space-y-3">
+                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo</h2>
+                            <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Initialize your member portfolio</p>
+                        </div>
+                        
+                        <div class="grid sm:grid-cols-2 gap-8">
+                            ${renderField('First Name', 'sFirst', 'text', true)}
+                            ${renderField('Last Name', 'sLast', 'text', true)}
+                            ${renderField('Email Address', 'sEmail', 'email', true)}
+                            ${renderField('Phone Number', 'sPhone', 'tel', true)}
+                        </div>
+                        
+                        ${renderField('Residential Address', 'sAddr', 'text', true)}
+
+                        <div class="space-y-6">
+                            <p class="text-[10px] font-black uppercase tracking-[0.3em] text-ajo-brown border-b pb-4">Classification</p>
+                            <div class="flex flex-wrap gap-3">
+                                ${SEGMENTS.map(s => `
+                                    <label class="flex items-center gap-3 px-6 py-4 border border-zinc-100 rounded-2xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white">
+                                        <input type="checkbox" name="sSegments" value="${s}" class="hidden">
+                                        <span class="text-[10px] font-black uppercase tracking-widest">${s}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="space-y-10">
+                            <p class="text-[10px] font-black uppercase tracking-[0.3em] text-ajo-brown border-b pb-4">Select Savings Plan(s)</p>
+                            ${['daily', 'weekly', 'monthly'].map(cat => `
+                                <div class="space-y-4">
+                                    <h4 class="text-[9px] font-black text-zinc-400 uppercase tracking-widest">${cat} options</h4>
+                                    <div class="grid sm:grid-cols-2 gap-3">
+                                        ${THRIFT_PLANS[cat].map(p => `
+                                            <label class="flex items-center gap-4 p-5 border border-zinc-50 rounded-2xl cursor-pointer hover:bg-zinc-50 transition-all has-[:checked]:bg-ajo-cream/40">
+                                                <input type="checkbox" name="sPlans" value="${p.id}" class="w-5 h-5 accent-ajo-brown">
+                                                <span class="text-[11px] font-bold text-ajo-black">${p.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="pt-8 space-y-4">
+                            <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-ajo-brown transition-all">Submit Enrollment</button>
+                            <button type="button" onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-red-500 transition-colors">Cancel Application</button>
+                        </div>
+                    </form>
+                </div>
+            `;
         }
 
-        function renderAdminLogin() {
-            return `<div class="min-h-screen bg-ajo-black flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl space-y-8 animate-in zoom-in"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Security Entry</h2></div><form id="adminLoginForm" class="space-y-6"><input type="password" id="adminPass" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm focus:bg-white focus:ring-2 focus:ring-ajo-brown/20 outline-none" placeholder="Access Key" required>${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Authorize Access</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black tracking-widest">Exit</button></div></div>`;
+        function renderField(label, id, type, req = false, val = '') {
+            return `
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">${label}</label>
+                    <input type="${type}" id="${id}" value="${val}" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-4 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" ${req ? 'required' : ''}>
+                </div>
+            `;
         }
 
-        function renderClientLogin() {
-            return `<div class="min-h-screen bg-ajo-cream flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in border border-ajo-brown/5"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Member Access</h2></div><form id="clientLoginForm" class="space-y-6"><input type="text" id="clientId" placeholder="FAJ-XXXX-XXXX" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm uppercase font-mono focus:bg-white focus:ring-2 focus:ring-ajo-brown/20 outline-none">${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Initialize Dashboard</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black tracking-widest">Return Home</button></div></div>`;
-        }
+        function renderDashboard(type) {
+            const isAdmin = type === 'admin';
+            const activeView = isAdmin ? state.adminActiveView : state.clientActiveView;
+            const currentObj = isAdmin ? { firstName: 'System', lastName: 'Admin' } : state.currentClient;
 
-        function renderDashboardLayout(type) {
-            const is_admin = type === 'admin';
-            const activeView = is_admin ? state.adminActiveView : state.clientActiveView;
-            const currentObj = is_admin ? { firstName: 'System', lastName: 'Admin' } : state.currentClient;
+            return `
+                <div class="flex h-screen overflow-hidden bg-white">
+                    <!-- Sidebar -->
+                    <aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'}">
+                        <div class="p-8 flex items-center gap-4 border-b border-white/5 mb-6">
+                            <div class="w-10 h-10 bg-ajo-brown rounded-xl flex items-center justify-center font-black shadow-lg">F</div>
+                            <span class="font-black text-sm uppercase tracking-tighter">Femi Ajo</span>
+                            <button onclick="window.toggleMobileSidebar()" class="lg:hidden ml-auto text-zinc-600"><i data-lucide="x"></i></button>
+                        </div>
+                        <nav class="flex-1 px-4 space-y-2">
+                            ${isAdmin ? `
+                                ${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateAdmin', 'dashboard')}
+                                ${renderNavItem('users', 'Members', activeView === 'clients', 'navigateAdmin', 'clients')}
+                                ${renderNavItem('plus-circle', 'Register', activeView === 'create', 'navigateAdmin', 'create')}
+                                ${renderNavItem('book-open', 'Full Ledger', activeView === 'history', 'navigateAdmin', 'history')}
+                            ` : `
+                                ${renderNavItem('layout-dashboard', 'Portfolio', activeView === 'dashboard', 'navigateClient', 'dashboard')}
+                                ${renderNavItem('user-circle', 'Identity', activeView === 'profile', 'navigateClient', 'profile')}
+                                ${renderNavItem('history', 'Timeline', activeView === 'history', 'navigateClient', 'history')}
+                            `}
+                        </nav>
+                        <div class="p-6 border-t border-white/5">
+                            <button onclick="window.handleLogout()" class="w-full py-4 bg-zinc-900 text-zinc-500 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-900/20 hover:text-red-400 transition-all">
+                                <i data-lucide="log-out" size="14"></i> Logout
+                            </button>
+                        </div>
+                    </aside>
 
-            return `<div class="flex h-screen overflow-hidden bg-white"><aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'} ${!state.isSidebarOpen && !state.mobileSidebarOpen ? 'lg:w-20' : 'lg:w-64'}"><div class="p-6 flex items-center gap-3 border-b border-zinc-900"><div class="w-8 h-8 bg-ajo-brown rounded-lg flex items-center justify-center font-bold shrink-0 shadow-lg">F</div><span class="font-black text-xs uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all ${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'w-0 opacity-0' : 'w-auto opacity-100'}">Femi Ajo</span><button onclick="window.toggleMobileSidebar()" class="lg:hidden absolute right-4"><i data-lucide="x" size="20"></i></button></div><nav class="flex-1 mt-6 px-3 space-y-2">${is_admin ? `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateAdmin', 'dashboard')}${renderNavItem('users', 'Members', activeView === 'clients', 'navigateAdmin', 'clients')}${renderNavItem('plus-circle', 'Register', activeView === 'create', 'navigateAdmin', 'create')}${renderNavItem('book-open', 'Full Ledger', activeView === 'history', 'navigateAdmin', 'history')}` : `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateClient', 'dashboard')}${renderNavItem('user-circle', 'My Profile', activeView === 'my-profile', 'navigateClient', 'my-profile')}${renderNavItem('file-text', 'Subscr.', activeView === 'my-plans', 'navigateClient', 'my-plans')}${renderNavItem('history', 'History', activeView === 'my-history', 'navigateClient', 'my-history')}`}</nav><div class="p-4 border-t border-zinc-900"><button onclick="window.handleLogout()" class="w-full py-3 px-3 bg-zinc-800 text-zinc-400 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-900/10 transition-all shadow-sm"><i data-lucide="log-out" size="14"></i><span class="${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'hidden' : 'inline'}">Exit Session</span></button></div></aside><main class="flex-1 overflow-y-auto w-full relative">${state.mobileSidebarOpen ? `<div onclick="window.toggleMobileSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"></div>` : ''}<header class="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-4 sm:px-10 py-3 flex justify-between items-center z-10"><div class="flex items-center gap-4"><button onclick="window.toggleMobileSidebar()" class="lg:hidden p-2 bg-ajo-cream rounded-xl text-ajo-brown shadow-inner"><i data-lucide="menu" size="20"></i></button><div><h1 class="text-xs font-black uppercase text-zinc-400 mb-0.5">${is_admin ? 'Administration' : 'Profile: ' + currentObj.displayId}</h1><p class="text-sm font-bold text-ajo-black tracking-tight">${currentObj.firstName} ${currentObj.lastName}</p></div></div><div class="w-10 h-10 rounded-xl bg-ajo-brown-dark flex items-center justify-center text-white font-bold text-xs shadow-lg ring-4 ring-ajo-cream tracking-tighter">${currentObj.firstName[0]}${currentObj.lastName[0] || ''}</div></header><div class="p-4 sm:p-10">${renderDashboardView(is_admin, activeView)}</div></main></div>`;
+                    <!-- Main Content -->
+                    <main class="flex-1 overflow-y-auto w-full relative bg-zinc-50">
+                        <header class="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-6 lg:px-12 py-4 flex justify-between items-center z-40">
+                            <div class="flex items-center gap-4">
+                                <button onclick="window.toggleMobileSidebar()" class="lg:hidden p-3 bg-ajo-cream rounded-xl text-ajo-brown"><i data-lucide="menu" size="20"></i></button>
+                                <div>
+                                    <h1 class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">${isAdmin ? 'Administrator' : 'Member ID: ' + currentObj.displayId}</h1>
+                                    <p class="text-sm font-black text-ajo-black tracking-tighter uppercase">${currentObj.firstName} ${currentObj.lastName}</p>
+                                </div>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl bg-ajo-black flex items-center justify-center text-white font-black text-xs shadow-xl ring-4 ring-ajo-cream">${currentObj.firstName[0]}${currentObj.lastName[0] || ''}</div>
+                        </header>
+                        <div class="p-6 lg:p-12">
+                            ${renderDashboardView(isAdmin, activeView)}
+                        </div>
+                    </main>
+                </div>
+            `;
         }
 
         function renderNavItem(icon, label, active, func, arg) {
-            const labelVisible = state.isSidebarOpen || state.mobileSidebarOpen;
             const isActive = active ? 'bg-ajo-brown text-white shadow-xl' : 'text-zinc-500 hover:bg-zinc-900 hover:text-white';
-            return `<button onclick="window.${func}('${arg}')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${isActive}"><i data-lucide="${icon}" size="18" class="shrink-0"></i><span class="font-bold text-[11px] uppercase tracking-widest ${labelVisible ? 'block' : 'hidden'}">${label}</span></button>`;
+            return `<button onclick="window.${func}('${arg}')" class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${isActive}"><i data-lucide="${icon}" size="18" class="shrink-0"></i><span class="font-black text-[10px] uppercase tracking-[0.2em]">${label}</span></button>`;
         }
 
-        function renderDashboardView(is_admin, view) {
-            if(is_admin) {
+        function renderDashboardView(isAdmin, view) {
+            if (isAdmin) {
                 switch (view) {
-                    case 'dashboard': return renderAdminDashboard();
-                    case 'clients': return renderAdminClients();
-                    case 'create': return renderAdminForm();
-                    case 'edit': return renderAdminForm(true);
+                    case 'dashboard': return renderAdminSummary();
+                    case 'clients': return renderAdminMemberDirectory();
+                    case 'create': return renderAdminMemberForm();
                     case 'history': return renderLedger(state.transactions);
-                    case 'transaction': return renderTransactionEntry();
+                    case 'transaction': return renderTransactionPanel();
+                    case 'edit': return renderAdminMemberForm(true);
                     default: return '';
                 }
             } else {
                 switch (view) {
-                    case 'dashboard': return renderClientDashboard();
-                    case 'my-profile': return renderClientProfile();
-                    case 'my-plans': return renderClientPlans();
-                    case 'my-history': return renderLedger(state.transactions.filter(t => t.clientId === state.currentClient.id), true);
+                    case 'dashboard': return renderMemberSummary();
+                    case 'profile': return renderMemberProfile();
+                    case 'history': return renderLedger(state.transactions.filter(t => t.clientId === state.currentClient.id), true);
                     default: return '';
                 }
             }
         }
 
-        function renderAdminDashboard() {
+        // --- ADMIN COMPONENTS ---
+        function renderAdminSummary() {
             const tIn = state.transactions.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
             const tOut = state.transactions.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-            return `<div class="space-y-8 animate-in fade-in"><div class="grid grid-cols-1 sm:grid-cols-3 gap-6">${renderStat('Verified Portfolios', state.clients.length, 'users', 'Members')}${renderStat('Total Inflow', '₦' + tIn.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}${renderStat('Payout Cycle', '₦' + tOut.toLocaleString(), 'arrow-up-right', 'Payouts', 'text-ajo-brown')}</div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-6 border-b flex justify-between items-center bg-zinc-50"><h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Activity</h2><button onclick="window.navigateAdmin('clients')" class="text-[10px] text-ajo-brown font-black uppercase hover:underline">Full Directory</button></div><div class="ledger-scroll"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Full Name</th><th class="px-8 py-5 text-right">Action</th></tr></thead><tbody class="divide-y divide-zinc-50">${state.clients.slice(-5).reverse().map(c => `<tr class="hover:bg-ajo-cream/20 transition-colors"><td class="px-8 py-5 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-8 py-5 font-bold tracking-tight text-ajo-black uppercase">${c.firstName} ${c.lastName}</td><td class="px-8 py-5 text-right"><button onclick="recordTransactionFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase px-4 py-2 rounded-lg hover:bg-ajo-brown hover:text-white transition-all shadow-sm font-bold">Record</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
+            
+            return `
+                <div class="space-y-12 animate-in fade-in duration-500">
+                    <div class="grid sm:grid-cols-3 gap-6">
+                        ${renderStatCard('Portfolios', state.clients.length, 'users', 'Members')}
+                        ${renderStatCard('Total Inflow', '₦' + tIn.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}
+                        ${renderStatCard('Total Outflow', '₦' + tOut.toLocaleString(), 'arrow-up-right', 'Payouts', 'text-ajo-brown')}
+                    </div>
+                    
+                    <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
+                        <div class="p-8 border-b flex justify-between items-center bg-zinc-50/50">
+                            <h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Enrollments</h2>
+                            <button onclick="window.navigateAdmin('clients')" class="text-[9px] text-ajo-brown font-black uppercase hover:underline">Manage All</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest">
+                                    <tr>
+                                        <th class="px-10 py-6">Identity</th>
+                                        <th class="px-10 py-6">Member Name</th>
+                                        <th class="px-10 py-6 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-50">
+                                    ${state.clients.slice(-5).reverse().map(c => `
+                                        <tr class="hover:bg-ajo-cream/10 transition-colors">
+                                            <td class="px-10 py-6 font-mono font-bold text-ajo-brown">${c.displayId}</td>
+                                            <td class="px-10 py-6 font-black uppercase tracking-tight text-ajo-black">${c.firstName} ${c.lastName}</td>
+                                            <td class="px-10 py-6 text-right">
+                                                <button onclick="window.recordFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase px-5 py-2.5 rounded-xl hover:bg-ajo-brown hover:text-white transition-all">Record Entry</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        function renderStat(l, v, i, s, c = '') {
-            return `<div class="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm flex items-start gap-5 hover:shadow-xl transition-all"><div class="w-12 h-12 bg-ajo-cream rounded-2xl flex items-center justify-center text-ajo-brown shrink-0 shadow-inner"><i data-lucide="${i}" size="20"></i></div><div><p class="text-zinc-400 font-black uppercase text-[8px] mb-2 tracking-[0.2em]">${l}</p><h4 class="text-xl sm:text-2xl font-black ${c} tracking-tight">${v}</h4><p class="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-widest">${s}</p></div></div>`;
+        window.recordFor = (id) => {
+            state.selectedClientForTrans = state.clients.find(c => c.id === id);
+            state.adminActiveView = 'transaction';
+            render();
+        };
+
+        window.editMember = (id) => {
+            state.editingClient = state.clients.find(c => c.id === id);
+            state.adminActiveView = 'edit';
+            render();
+        };
+
+        function renderStatCard(l, v, i, s, c = '') {
+            return `
+                <div class="bg-white p-10 rounded-[3rem] border border-zinc-100 shadow-sm flex items-start gap-6 hover:shadow-xl transition-all">
+                    <div class="w-14 h-14 bg-ajo-cream rounded-2xl flex items-center justify-center text-ajo-brown shrink-0 shadow-inner">
+                        <i data-lucide="${i}" size="24"></i>
+                    </div>
+                    <div>
+                        <p class="text-zinc-400 font-black uppercase text-[8px] mb-2 tracking-[0.3em]">${l}</p>
+                        <h4 class="text-2xl font-black ${c} tracking-tighter">${v}</h4>
+                        <p class="text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-widest">${s}</p>
+                    </div>
+                </div>
+            `;
         }
 
-        window.recordTransactionFor = function(id) { state.selectedClientForTrans = state.clients.find(c => c.id === id); window.navigateAdmin('transaction'); }
-        window.editClient = function(id) { state.editingClient = state.clients.find(c => c.id === id); window.navigateAdmin('edit'); }
-
-        function renderAdminClients() {
-            return `<div class="space-y-10 animate-in fade-in"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div><h2 class="text-2xl font-black tracking-tighter uppercase text-ajo-black">Member Directory</h2><p class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Management Console</p></div><input type="text" id="clientSearch" value="${state.clientsSearch}" placeholder="SEARCH RECORDS..." class="w-full sm:w-80 bg-ajo-cream rounded-3xl pl-6 pr-6 py-4 text-[10px] font-black outline-none transition-all uppercase tracking-widest focus:bg-white focus:ring-2 focus:ring-ajo-brown/10 shadow-inner"></div>${renderAdminClientCategory('daily')}${renderAdminClientCategory('weekly')}${renderAdminClientCategory('monthly')}</div>`;
+        function renderAdminMemberDirectory() {
+            return `
+                <div class="space-y-12 animate-in fade-in duration-500">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div>
+                            <h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Member Registry</h2>
+                            <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-2">Database Management</p>
+                        </div>
+                        <div class="relative w-full md:w-96">
+                            <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-400" size="18"></i>
+                            <input type="text" id="clientSearchInput" value="${state.clientsSearch}" placeholder="SEARCH BY NAME OR ID..." 
+                                class="w-full bg-white border border-zinc-100 rounded-full pl-16 pr-8 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-ajo-brown/5 shadow-sm">
+                        </div>
+                    </div>
+                    
+                    ${['daily', 'weekly', 'monthly'].map(cat => renderDirectoryCategory(cat)).join('')}
+                </div>
+            `;
         }
 
-        function renderAdminClientCategory(catId) {
+        function renderDirectoryCategory(catId) {
             const filtered = state.clients.filter(c => {
                 const hasPlan = (c.plans || []).some(pId => THRIFT_PLANS[catId].some(p => p.id === pId));
-                const match = !state.clientsSearch || (c.firstName + ' ' + (c.lastName || '')).toLowerCase().includes(state.clientsSearch.toLowerCase()) || (c.displayId || '').toLowerCase().includes(state.clientsSearch.toLowerCase());
-                return hasPlan && match;
+                const matchSearch = !state.clientsSearch || 
+                    `${c.firstName} ${c.lastName}`.toLowerCase().includes(state.clientsSearch.toLowerCase()) || 
+                    c.displayId.toLowerCase().includes(state.clientsSearch.toLowerCase());
+                return hasPlan && matchSearch;
             });
-            return `<div class="space-y-4"><div class="flex items-center gap-3"><div class="w-1.5 h-6 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${catId} RECORDS (${filtered.length})</h3></div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.2em]"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Member Name</th><th class="px-8 py-5 text-center text-green-700 font-black">In</th><th class="px-8 py-5 text-center text-ajo-brown font-black">Out</th><th class="px-8 py-5 text-right">Actions</th></tr></thead><tbody class="divide-y divide-zinc-50">${filtered.map(c => {
-                const cTrans = state.transactions.filter(t => t.clientId === c.id && (THRIFT_PLANS[catId] || []).some(p => p.id === t.planId));
-                const tIn = cTrans.filter(t => t.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
-                const tOut = cTrans.filter(t => t.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-                return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-8 py-5 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-8 py-5"><div class="font-bold text-ajo-black">${c.firstName} ${c.lastName || ''}</div><div class="text-[9px] text-zinc-400 uppercase mt-1 font-black">S: ${c.segments?.join('/') || 'Individual'}</div></td><td class="px-8 py-5 text-center text-green-700 font-black">₦${tIn.toLocaleString()}</td><td class="px-8 py-5 text-center text-ajo-brown font-black">₦${tOut.toLocaleString()}</td><td class="px-8 py-5 text-right flex items-center justify-end gap-2 pt-5"><button onclick="recordTransactionFor('${c.id}')" class="p-2.5 bg-ajo-brown/10 text-ajo-brown rounded-xl"><i data-lucide="plus" size="16"></i></button><button onclick="editClient('${c.id}')" class="p-2.5 bg-zinc-100 text-zinc-500 rounded-xl hover:bg-ajo-black hover:text-white transition-all"><i data-lucide="edit-3" size="16"></i></button></td></tr>`;
-            }).join('')}</tbody></table></div></div></div>`;
+
+            if (filtered.length === 0 && state.clientsSearch) return '';
+
+            return `
+                <div class="space-y-6">
+                    <div class="flex items-center gap-4 px-4">
+                        <div class="w-2 h-8 bg-ajo-brown rounded-full"></div>
+                        <h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">${catId} Active Records (${filtered.length})</h3>
+                    </div>
+                    <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.25em]">
+                                    <tr>
+                                        <th class="px-10 py-6">ID Portfolio</th>
+                                        <th class="px-10 py-6">Member Info</th>
+                                        <th class="px-10 py-6 text-center">Net Saved</th>
+                                        <th class="px-10 py-6 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-50">
+                                    ${filtered.map(c => {
+                                        const cTrans = state.transactions.filter(t => t.clientId === c.id);
+                                        const bal = cTrans.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0);
+                                        return `
+                                            <tr class="hover:bg-ajo-cream/10 transition-colors">
+                                                <td class="px-10 py-6 font-mono font-bold text-ajo-brown text-sm tracking-widest">${c.displayId}</td>
+                                                <td class="px-10 py-6">
+                                                    <div class="font-black text-ajo-black uppercase tracking-tight text-sm">${c.firstName} ${c.lastName}</div>
+                                                    <div class="text-[9px] text-zinc-400 uppercase mt-1 font-black tracking-widest">${c.segments?.join(' | ') || 'No Segment'}</div>
+                                                </td>
+                                                <td class="px-10 py-6 text-center font-black text-green-700 text-sm">₦${bal.toLocaleString()}</td>
+                                                <td class="px-10 py-6 text-right flex items-center justify-end gap-3">
+                                                    <button onclick="window.recordFor('${c.id}')" class="p-3.5 bg-ajo-brown/10 text-ajo-brown rounded-2xl hover:bg-ajo-brown hover:text-white transition-all"><i data-lucide="plus" size="18"></i></button>
+                                                    <button onclick="window.editMember('${c.id}')" class="p-3.5 bg-zinc-100 text-zinc-400 rounded-2xl hover:bg-ajo-black hover:text-white transition-all"><i data-lucide="settings" size="18"></i></button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        function renderAdminForm(isEdit = false) {
+        function renderAdminMemberForm(isEdit = false) {
             const data = isEdit ? state.editingClient : { firstName: '', lastName: '', email: '', phone: '', address: '', plans: [], segments: [] };
-            return `<div class="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-6"><form id="${isEdit ? 'editPortfolioForm' : 'createPortfolioForm'}" class="bg-white p-8 sm:p-12 rounded-[3rem] border border-zinc-100 shadow-2xl space-y-12"><div class="text-center uppercase"><h2 class="text-2xl font-black tracking-tighter text-ajo-black">${isEdit ? 'Modify Account' : 'Manual Registration'}</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-8"><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">First Name</label><input type="text" id="cFirst" value="${data.firstName}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Last Name</label><input type="text" id="cLast" value="${data.lastName || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contact Phone</label><input type="text" id="cPhone" value="${data.phone || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Email Address</label><input type="email" id="cEmail" value="${data.email || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Full Address</label><input type="text" id="cAddr" value="${data.address || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-8"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4">Classification</p><div class="flex flex-wrap gap-3">${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-5 py-3 border border-zinc-100 rounded-2xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="cSegments" value="${s}" class="w-4 h-4 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}><span class="text-[10px] font-black tracking-widest uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-10"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4 text-left">Subscription Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-4"><h4 class="text-[8px] font-black uppercase text-zinc-400 ml-2">${cat}</h4><div class="grid grid-cols-1 gap-2">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-4 border border-zinc-100 rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50 transition-all"><input type="checkbox" name="cPlans" value="${p.id}" class="w-5 h-5 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}><span class="text-[11px] font-bold text-ajo-black tracking-tight">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all shadow-xl">${isEdit ? 'Update Portfolio' : 'Authorize Membership'}</button></form></div>`;
+            return `
+                <div class="max-w-4xl mx-auto">
+                    <form id="${isEdit ? 'editMemberForm' : 'createMemberForm'}" class="bg-white p-12 lg:p-20 rounded-[4rem] border border-zinc-100 shadow-2xl space-y-16 animate-in slide-in-from-bottom-10 duration-500">
+                        <div class="text-center space-y-4">
+                            <h2 class="text-3xl font-black tracking-tighter text-ajo-black uppercase">${isEdit ? 'Update Member Profile' : 'Direct Member Enrollment'}</h2>
+                            <p class="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Internal Ledger Authorization</p>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-8">
+                            ${renderField('First Name', 'cFirst', 'text', true, data.firstName)}
+                            ${renderField('Last Name', 'cLast', 'text', true, data.lastName)}
+                            ${renderField('Member Phone', 'cPhone', 'text', true, data.phone)}
+                            ${renderField('Email Address', 'cEmail', 'email', true, data.email)}
+                        </div>
+                        ${renderField('Primary Address', 'cAddr', 'text', true, data.address)}
+
+                        <div class="space-y-8">
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Member Classification</p>
+                            <div class="flex flex-wrap gap-4">
+                                ${SEGMENTS.map(s => `
+                                    <label class="flex items-center gap-4 px-8 py-5 border border-zinc-100 rounded-3xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white">
+                                        <input type="checkbox" name="cSegments" value="${s}" class="w-5 h-5 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}>
+                                        <span class="text-[10px] font-black tracking-widest uppercase">${s}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="space-y-12">
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Assigned Savings Plans</p>
+                            ${['daily', 'weekly', 'monthly'].map(cat => `
+                                <div class="space-y-6">
+                                    <h4 class="text-[9px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">${cat} Series</h4>
+                                    <div class="grid gap-3">
+                                        ${THRIFT_PLANS[cat].map(p => `
+                                            <label class="flex items-center gap-6 p-6 border border-zinc-50 rounded-3xl cursor-pointer hover:bg-zinc-50 transition-all has-[:checked]:bg-ajo-cream/30">
+                                                <input type="checkbox" name="cPlans" value="${p.id}" class="w-6 h-6 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}>
+                                                <span class="text-sm font-bold text-ajo-black tracking-tight">${p.label}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="pt-10 flex flex-col gap-4">
+                            <button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-ajo-brown transition-all">
+                                ${isEdit ? 'Update Master Portfolio' : 'Authorize New Membership'}
+                            </button>
+                            ${isEdit ? `
+                                <button type="button" onclick="window.navigateAdmin('clients')" class="w-full text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-ajo-black">Cancel Changes</button>
+                            ` : ''}
+                        </div>
+                    </form>
+                </div>
+            `;
         }
 
-        function renderTransactionEntry() {
+        function renderTransactionPanel() {
             const c = state.selectedClientForTrans;
             const cPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].filter(p => (c.plans || []).includes(p.id));
-            return `<div class="max-w-xl mx-auto bg-white p-8 sm:p-12 rounded-[3rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in"><button onclick="window.navigateAdmin('clients')" class="absolute top-8 right-8 text-zinc-300 hover:text-ajo-black transition-colors"><i data-lucide="x" size="24"></i></button><h2 class="text-2xl font-black mb-10 border-b pb-4 uppercase tracking-tighter text-ajo-black">Secure Ledger Entry</h2><form id="transForm" class="space-y-8"><div class="flex bg-ajo-cream p-1.5 rounded-2xl shadow-inner"><button type="button" onclick="window.setTransType('in')" id="typeIn" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest bg-white text-green-700 shadow-md transition-all">Pay-In</button><button type="button" onclick="window.setTransType('out')" id="typeOut" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500 transition-all">Pay-Out</button></div><input type="number" id="tAmt" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm font-black outline-none border-transparent focus:bg-white focus:ring-2 focus:ring-ajo-brown/10" placeholder="Amount (₦)" required><select id="tPlan" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-[10px] font-black uppercase outline-none focus:bg-white" required><option value="">Select Plan Context...</option>${cPlans.map(p => `<option value="${p.id}">${p.label.toUpperCase()}</option>`).join('')}</select><div class="border-2 border-dashed border-zinc-200 rounded-3xl p-10 bg-ajo-cream/30 text-center relative group hover:bg-white transition-all"><input type="file" id="tProof" class="absolute inset-0 opacity-0 cursor-pointer"><i data-lucide="file-text" class="mx-auto text-ajo-brown mb-3 group-hover:scale-110 transition-transform" size="32"></i><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Click to upload payment slip</p></div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl">Submit Transaction</button></form></div>`;
+            
+            return `
+                <div class="max-w-2xl mx-auto">
+                    <div class="bg-white p-12 lg:p-20 rounded-[4rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in duration-500">
+                        <button onclick="window.navigateAdmin('clients')" class="absolute top-12 right-12 text-zinc-300 hover:text-ajo-black transition-colors"><i data-lucide="x" size="24"></i></button>
+                        
+                        <div class="text-center mb-16 space-y-4">
+                            <h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Ledger Transaction</h2>
+                            <div class="inline-block px-5 py-2 bg-ajo-cream rounded-full text-ajo-brown font-mono font-bold text-[10px] tracking-widest">${c.displayId} | ${c.firstName} ${c.lastName}</div>
+                        </div>
+
+                        <form id="transactionEntryForm" class="space-y-10">
+                            <div class="flex bg-ajo-cream/50 p-2 rounded-3xl shadow-inner">
+                                <button type="button" onclick="window.setTransType('in')" 
+                                    class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'in' ? 'bg-white text-green-700 shadow-xl' : 'text-zinc-400'}">
+                                    <i data-lucide="arrow-down-left" size="14" class="inline mr-2"></i> Pay-In
+                                </button>
+                                <button type="button" onclick="window.setTransType('out')" 
+                                    class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'out' ? 'bg-white text-ajo-brown shadow-xl' : 'text-zinc-400'}">
+                                    <i data-lucide="arrow-up-right" size="14" class="inline mr-2"></i> Pay-Out
+                                </button>
+                            </div>
+
+                            ${renderField('Transaction Amount (₦)', 'tAmt', 'number', true)}
+
+                            <div class="space-y-2">
+                                <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">Target Plan</label>
+                                <select id="tPlanSelect" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white transition-all shadow-inner" required>
+                                    <option value="">Select Plan...</option>
+                                    ${cPlans.map(p => `<option value="${p.id}">${p.label}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            <div class="border-4 border-dashed border-zinc-100 rounded-[3rem] p-12 text-center group hover:border-ajo-brown/20 transition-all bg-zinc-50/50">
+                                <i data-lucide="file-text" class="mx-auto text-zinc-200 group-hover:text-ajo-brown mb-6 transition-colors" size="48"></i>
+                                <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.25em]">Upload Proof of Payment</p>
+                                <p class="text-[8px] text-zinc-300 mt-2 uppercase">(Optional Digital Copy)</p>
+                            </div>
+
+                            <button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-ajo-brown transition-all">Commit to Ledger</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- MEMBER COMPONENTS ---
+        function renderMemberSummary() {
+            const c = state.currentClient;
+            const t = state.transactions.filter(x => x.clientId === c.id);
+            const bal = t.reduce((acc, x) => acc + (x.type === 'in' ? Number(x.amount) : -Number(x.amount)), 0);
+            
+            return `
+                <div class="space-y-16 animate-in fade-in duration-500">
+                    <div class="bg-ajo-black p-12 md:p-20 rounded-[4rem] text-white relative overflow-hidden shadow-2xl">
+                        <div class="absolute -top-20 -right-20 w-80 h-80 bg-ajo-brown/10 rounded-full blur-[100px]"></div>
+                        <p class="text-ajo-brown font-black uppercase text-[10px] mb-6 tracking-[0.5em]">Consolidated Net Savings</p>
+                        <h3 class="text-6xl md:text-8xl font-black mb-12 tracking-tighter">₦${bal.toLocaleString()}</h3>
+                        <div class="flex flex-wrap gap-4">
+                            <div class="px-6 py-3 bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 font-mono">FAJ LEDGER: ${c.displayId}</div>
+                            <div class="px-6 py-3 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Cycles</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-10">
+                        <div class="flex items-center gap-4">
+                            <div class="w-2 h-8 bg-ajo-brown rounded-full"></div>
+                            <h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">My Savings Portfolio</h3>
+                        </div>
+                        <div class="grid gap-10">
+                            ${['daily', 'weekly', 'monthly'].map(catId => {
+                                const plans = THRIFT_PLANS[catId].filter(p => (c.plans || []).includes(p.id));
+                                if (plans.length === 0) return '';
+                                return `
+                                    <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
+                                        <div class="p-8 border-b bg-zinc-50/50 flex justify-between items-center">
+                                            <h4 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">${catId} Series</h4>
+                                        </div>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                                <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest">
+                                                    <tr>
+                                                        <th class="px-10 py-6">Target Plan</th>
+                                                        <th class="px-10 py-6 text-center">Lifecycle Progress</th>
+                                                        <th class="px-10 py-6 text-right">Plan Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-zinc-50">
+                                                    ${plans.map(p => {
+                                                        const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id);
+                                                        const pVal = pT.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0);
+                                                        const progress = Math.min((pVal / p.packValue) * 100, 100);
+                                                        return `
+                                                            <tr class="hover:bg-ajo-cream/10 transition-colors">
+                                                                <td class="px-10 py-8 font-black text-ajo-black text-sm tracking-tight">${p.label}</td>
+                                                                <td class="px-10 py-8">
+                                                                    <div class="flex items-center justify-center gap-4">
+                                                                        <div class="w-40 bg-zinc-100 h-2 rounded-full overflow-hidden shadow-inner">
+                                                                            <div class="bg-ajo-brown h-full transition-all duration-1000" style="width: ${progress}%"></div>
+                                                                        </div>
+                                                                        <span class="text-[10px] font-black text-zinc-400 tracking-tighter">${Math.round(progress)}%</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td class="px-10 py-8 text-right font-black text-sm tracking-tighter text-ajo-black uppercase">₦${pVal.toLocaleString()}</td>
+                                                            </tr>
+                                                        `;
+                                                    }).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMemberProfile() {
+            const c = state.currentClient;
+            return `
+                <div class="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-10 duration-500">
+                    <div class="bg-white rounded-[4rem] border border-zinc-100 p-12 lg:p-20 shadow-2xl">
+                        <div class="flex flex-col md:flex-row justify-between items-start gap-8 border-b border-zinc-50 pb-12 mb-12">
+                            <div>
+                                <h2 class="text-4xl font-black text-ajo-black tracking-tighter uppercase mb-2">Member Identity</h2>
+                                <p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown italic">Verified Enrollment Data</p>
+                            </div>
+                            <div class="px-8 py-3 bg-ajo-black text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] font-mono">PORTFOLIO: ${c.displayId}</div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-x-16 gap-y-10 text-sm">
+                            ${renderProfileItem('Legal Name', `${c.firstName} ${c.lastName}`)}
+                            ${renderProfileItem('Email Contact', c.email)}
+                            ${renderProfileItem('Mobile Line', c.phone)}
+                            ${renderProfileItem('Member Segment', c.segments?.join(', ') || 'General')}
+                            <div class="md:col-span-2">
+                                ${renderProfileItem('Primary Address', c.address)}
+                            </div>
+                        </div>
+
+                        <div class="mt-20 p-10 bg-ajo-cream/30 border border-ajo-brown/10 rounded-[3rem] flex flex-col md:flex-row items-center gap-8">
+                            <div class="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-ajo-brown shrink-0 shadow-lg"><i data-lucide="help-circle" size="28"></i></div>
+                            <div class="text-center md:text-left">
+                                <p class="text-[11px] font-black uppercase tracking-widest text-ajo-black mb-1">Need to update your details?</p>
+                                <p class="text-xs text-zinc-500 leading-relaxed">Identity verification is mandatory for profile changes. Please coordinate with the admin team at <a href="mailto:femiajoplace@gmail.com" class="text-ajo-brown font-bold underline hover:text-ajo-brown-dark transition-colors">femiajoplace@gmail.com</a>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProfileItem(l, v) {
+            return `<div><p class="text-[10px] font-black uppercase text-zinc-300 tracking-widest mb-2">${l}</p><p class="text-sm font-black text-ajo-black uppercase tracking-tight">${v}</p></div>`;
         }
 
         function renderLedger(transactions, isClient = false) {
             const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-            return `<div class="space-y-6 animate-in fade-in"><div class="flex items-center justify-between px-2"><h2 class="text-2xl font-black uppercase tracking-tighter text-ajo-black">Ledger Records</h2><span class="text-[9px] font-black uppercase text-zinc-400 tracking-[0.2em]">${sorted.length} ENTRIES</span></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Timestamp</th>${!isClient ? '<th class="px-8 py-5">Member</th>' : ''}<th class="px-8 py-5">Event</th><th class="px-8 py-5 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${sorted.map(t => `<tr class="hover:bg-zinc-50 transition-colors"><td class="px-8 py-5 text-zinc-500 font-bold">${new Date(t.date).toLocaleDateString()}<br><span class="opacity-50 text-[8px] uppercase font-black">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></td>${!isClient ? `<td class="px-8 py-5 font-bold text-ajo-black uppercase tracking-tight">${t.clientName}</td>` : ''}<td class="px-8 py-5"><span class="px-3 py-1 rounded-lg font-black uppercase text-[8px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-800' : 'bg-ajo-brown/10 text-ajo-brown'}">${t.type === 'in' ? 'Deposit' : 'Withdrawal'}</span></td><td class="px-8 py-5 text-right font-black text-sm ${t.type === 'in' ? 'text-green-700' : 'text-ajo-black'}">₦${Number(t.amount).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></div></div>`;
-        }
-
-        function renderClientDashboard() {
-            const c = state.currentClient;
-            const t = state.transactions.filter(x => x.clientId === c.id);
-            const tIn = t.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
-            const tOut = t.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-            return `<div class="space-y-10 animate-in fade-in"><div class="bg-ajo-black p-10 sm:p-14 rounded-[3.5rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-10 -right-10 w-64 h-64 bg-ajo-brown/10 rounded-full blur-[80px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-4 tracking-[0.3em]">Consolidated Balance</p><h3 class="text-5xl sm:text-7xl font-black mb-10 tracking-tighter">₦${(tIn - tOut).toLocaleString()}</h3><div class="flex flex-wrap gap-3"><div class="px-5 py-2 bg-white/10 rounded-2xl text-[10px] font-black uppercase border border-white/5 font-mono tracking-widest">${c.displayId}</div><div class="px-5 py-2 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Plans</div></div></div>${renderClientPlans()}</div>`;
-        }
-
-        function renderClientProfile() {
-            const c = state.currentClient;
             return `
-                <div class="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6">
-                    <div class="bg-white rounded-[3rem] border border-zinc-100 p-8 sm:p-12 shadow-xl premium-shadow">
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-zinc-50 pb-8 mb-8 text-left">
-                            <div>
-                                <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase mb-2">Member Profile</h2>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-ajo-brown italic">Secure Portfolio Data</p>
-                            </div>
-                            <div class="px-5 py-2 bg-ajo-cream text-ajo-brown-dark rounded-xl text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10 font-mono">ID: ${c.displayId}</div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-sm text-left">
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1 text-zinc-400">Legal Name</p><p class="text-sm font-bold text-ajo-black uppercase">${c.firstName} ${c.lastName}</p></div>
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1 text-zinc-400">Email Address</p><p class="text-sm font-bold text-ajo-black">${c.email}</p></div>
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1 text-zinc-400">Contact Phone</p><p class="text-sm font-bold text-ajo-black">${c.phone || 'N/A'}</p></div>
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1 text-zinc-400">Member Segment</p><p class="text-sm font-bold text-ajo-black uppercase">${c.segments?.join(', ') || 'Individual'}</p></div>
-                            <div class="md:col-span-2 text-left">
-                                <p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1 text-zinc-400 text-left">Registered Address</p><p class="text-sm font-bold text-ajo-black leading-relaxed">${c.address}</p>
-                            </div>
-                        </div>
-
-                        <div class="mt-12 p-6 bg-ajo-cream/30 border border-ajo-brown/5 rounded-[2rem] flex items-center gap-4 text-left">
-                            <div class="w-10 h-10 bg-ajo-brown/10 rounded-xl flex items-center justify-center text-ajo-brown shrink-0 shadow-sm"><i data-lucide="help-circle" size="20"></i></div>
-                            <div class="text-left">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-ajo-black italic">Need assistance?</p>
-                                <p class="text-[11px] text-zinc-500 mt-1">Please contact <a href="mailto:femiajoplace@gmail.com" class="text-ajo-brown font-bold underline hover:text-ajo-brown-dark">femiajoplace@gmail.com</a> for profile updates.</p>
-                            </div>
+                <div class="space-y-10 animate-in fade-in duration-500">
+                    <div class="flex items-center justify-between px-4">
+                        <h2 class="text-3xl font-black uppercase tracking-tighter text-ajo-black">Digital Ledger</h2>
+                        <span class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.4em]">${sorted.length} Records Found</span>
+                    </div>
+                    <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs whitespace-nowrap">
+                                <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.3em]">
+                                    <tr>
+                                        <th class="px-10 py-6">Timestamp</th>
+                                        ${!isClient ? '<th class="px-10 py-6">Member Identity</th>' : ''}
+                                        <th class="px-10 py-6">Action Event</th>
+                                        <th class="px-10 py-6 text-right">Value (₦)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-50">
+                                    ${sorted.map(t => `
+                                        <tr class="hover:bg-zinc-50 transition-colors">
+                                            <td class="px-10 py-8 text-zinc-400 font-bold">
+                                                <div class="text-ajo-black">${new Date(t.date).toLocaleDateString()}</div>
+                                                <div class="text-[8px] uppercase tracking-widest opacity-60 mt-1">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                            </td>
+                                            ${!isClient ? `<td class="px-10 py-8 font-black text-ajo-black uppercase tracking-tight">${t.clientName}</td>` : ''}
+                                            <td class="px-10 py-8">
+                                                <span class="px-4 py-1.5 rounded-lg font-black uppercase text-[9px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-ajo-brown/10 text-ajo-brown'}">
+                                                    ${t.type === 'in' ? 'Deposit Entry' : 'Withdrawal Entry'}
+                                                </span>
+                                            </td>
+                                            <td class="px-10 py-8 text-right font-black text-base ${t.type === 'in' ? 'text-green-700' : 'text-ajo-black'}">₦${Number(t.amount).toLocaleString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                    ${sorted.length === 0 ? `<tr><td colspan="4" class="px-10 py-20 text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest">No ledger entries found</td></tr>` : ''}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                </div>`;
+                </div>
+            `;
         }
 
-        function renderClientPlans() {
-            const c = state.currentClient;
-            const cats = [{id: 'daily', label: 'Daily'}, {id: 'weekly', label: 'Weekly'}, {id: 'monthly', label: 'Monthly'}];
-            return `<div class="space-y-14 text-left">${cats.map(cat => {
-                const plans = THRIFT_PLANS[cat.id].filter(p => (c.plans || []).includes(p.id));
-                if (plans.length === 0) return '';
-                return `<div class="space-y-6"><div class="flex items-center gap-3 px-2"><div class="w-1.5 h-6 bg-ajo-brown rounded-full shadow-sm"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${cat.label} STATUS</h3></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Plan Context</th><th class="px-8 py-5 text-center text-green-700">Deposited</th><th class="px-8 py-5 text-center">Progress</th><th class="px-8 py-5 text-right">Net Saved</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => {
-                    const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id);
-                    const pI = pT.filter(t => t.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
-                    const pO = pT.filter(t => t.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-                    const progress = Math.min(((pI - pO) / p.packValue) * 100, 100);
-                    return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-8 py-6 font-bold text-ajo-black text-sm tracking-tight text-ajo-black">${p.label}</td><td class="px-8 py-6 text-center font-black text-green-700">₦${pI.toLocaleString()}</td><td class="px-8 py-6 text-center"><div class="flex items-center justify-center gap-2"><div class="w-12 bg-ajo-cream h-1 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000 shadow-sm" style="width: ${progress}%"></div></div><span class="text-[8px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-8 py-6 text-right font-black text-sm tracking-tighter">₦${(pI - pO).toLocaleString()}</td></tr>`;
-                }).join('')}</tbody></table></div></div></div>`;
-            }).join('')}</div>`;
+        function renderSuccessModal() {
+            return `
+                <div class="fixed inset-0 z-[100] flex items-center justify-center p-6 modal-blur animate-in fade-in duration-300">
+                    <div class="bg-white rounded-[4rem] p-12 lg:p-20 max-w-xl w-full text-center shadow-2xl animate-in zoom-in duration-500">
+                        <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner">
+                            <i data-lucide="check-circle" class="text-green-500" size="40"></i>
+                        </div>
+                        <h3 class="text-3xl font-black text-ajo-black mb-6 uppercase tracking-tighter">Identity Authorized</h3>
+                        <p class="text-zinc-500 text-sm leading-relaxed mb-12">
+                            Your savings portfolio has been initialized in our secure digital ledger. Please check your email <b>${state.lastSignupId}</b> for your unique member ID and portal access instructions.
+                        </p>
+                        <button onclick="window.navigate('client-login')" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-ajo-brown transition-all">Proceed to Login</button>
+                    </div>
+                </div>
+            `;
         }
 
-        // --- ATTACH HANDLERS ---
-        function attachListeners() {
-            const signupForm = document.getElementById('signupForm');
-            if (signupForm) signupForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const plans = Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value);
-                const segments = Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value);
-                if (!plans.length) return alert('Plan required.');
-                const emailValue = document.getElementById('sEmail').value;
-                const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-                const clientData = {
-                    firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value,
-                    email: emailValue, phone: document.getElementById('sPhone').value,
-                    address: document.getElementById('sAddr').value, segments, plans, displayId, createdAt: new Date().toISOString()
-                };
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
-                    await triggerEmails('signup', clientData);
-                    state.lastGeneratedId = emailValue;
-                    state.showSignupSuccess = true;
+        // --- EVENT ATTACHMENT ---
+        function attachDomEvents() {
+            // Member/Admin Login Forms
+            const forms = ['clientLoginForm', 'adminLoginForm', 'signupForm', 'createMemberForm', 'editMemberForm', 'transactionEntryForm'];
+            
+            forms.forEach(formId => {
+                const el = document.getElementById(formId);
+                if (el) el.onsubmit = (e) => handleFormSubmit(e, formId);
+            });
+
+            // Search Logic (Improved to maintain focus)
+            const searchInput = document.getElementById('clientSearchInput');
+            if (searchInput) {
+                searchInput.oninput = (e) => {
+                    state.clientsSearch = e.target.value;
                     render();
-                } catch (error) { alert("Registration Error: " + error.message); }
-            };
-
-            const createForm = document.getElementById('createPortfolioForm');
-            if (createForm) createForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
-                const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
-                const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-                const clientData = {
-                    firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value,
-                    email: document.getElementById('cEmail').value, phone: document.getElementById('cPhone').value,
-                    address: document.getElementById('cAddr').value, segments, plans, displayId, createdAt: new Date().toISOString()
+                    // Re-focus after render
+                    const input = document.getElementById('clientSearchInput');
+                    input.focus();
+                    input.setSelectionRange(input.value.length, input.value.length);
                 };
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
-                    await triggerEmails('signup', clientData);
-                    window.navigateAdmin('clients');
-                } catch (error) { alert(error.message); }
-            };
-
-            const editForm = document.getElementById('editPortfolioForm');
-            if (editForm) editForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
-                const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
-                try {
-                    const clientRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.editingClient.id);
-                    await updateDoc(clientRef, {
-                        firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value,
-                        email: document.getElementById('cEmail').value, phone: document.getElementById('cPhone').value,
-                        address: document.getElementById('cAddr').value, segments, plans
-                    });
-                    state.editingClient = null;
-                    window.navigateAdmin('clients');
-                } catch (error) { alert(error.message); }
-            };
-
-            const transForm = document.getElementById('transForm');
-            if (transForm) transForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const amt = document.getElementById('tAmt').value;
-                const client = state.selectedClientForTrans;
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), {
-                        clientId: client.id, clientName: `${client.firstName} ${client.lastName}`,
-                        amount: amt, planId: document.getElementById('tPlan').value, 
-                        type: currentTransType, date: new Date().toISOString()
-                    });
-                    await triggerEmails('transaction', { client, amount: amt, type: currentTransType });
-                    window.navigateAdmin('history');
-                } catch (error) { alert(error.message); }
-            };
-
-            const adminForm = document.getElementById('adminLoginForm');
-            if (adminForm) adminForm.onsubmit = (e) => { e.preventDefault(); handleAdminLogin(document.getElementById('adminPass').value); };
-            const clientForm = document.getElementById('clientLoginForm');
-            if (clientForm) clientForm.onsubmit = (e) => { e.preventDefault(); handleClientLogin(document.getElementById('clientId').value); };
-            const searchInput = document.getElementById('clientSearch');
-            if (searchInput) searchInput.oninput = (e) => { state.clientsSearch = e.target.value; render(); };
+            }
         }
 
-        window.onload = initAuth;
+        async function handleFormSubmit(e, formId) {
+            e.preventDefault();
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+
+            try {
+                if (formId === 'adminLoginForm') {
+                    const pass = document.getElementById('authKey').value;
+                    if (pass === 'admin123') {
+                        state.view = 'admin-dash';
+                        showToast('Admin access authorized');
+                    } else {
+                        state.error = 'Invalid security key';
+                    }
+                }
+
+                if (formId === 'clientLoginForm') {
+                    const id = document.getElementById('authKey').value.trim().toUpperCase();
+                    const found = state.clients.find(c => c.displayId === id);
+                    if (found) {
+                        state.currentClient = found;
+                        state.view = 'client-dash';
+                        showToast('Welcome back, ' + found.firstName);
+                    } else {
+                        state.error = 'Portfolio ID not found';
+                    }
+                }
+
+                if (formId === 'signupForm') {
+                    const plans = Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value);
+                    const segments = Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value);
+                    if (!plans.length) throw new Error('Selection of at least one plan is required');
+
+                    const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    const clientData = {
+                        firstName: document.getElementById('sFirst').value,
+                        lastName: document.getElementById('sLast').value,
+                        email: document.getElementById('sEmail').value,
+                        phone: document.getElementById('sPhone').value,
+                        address: document.getElementById('sAddr').value,
+                        segments, plans, displayId,
+                        dateCreated: new Date().toISOString()
+                    };
+
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
+                    await triggerEmails('signup', clientData);
+                    state.lastSignupId = clientData.email;
+                    state.showSignupSuccess = true;
+                }
+
+                if (formId === 'createMemberForm') {
+                    const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
+                    const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
+                    const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    
+                    const clientData = {
+                        firstName: document.getElementById('cFirst').value,
+                        lastName: document.getElementById('cLast').value,
+                        email: document.getElementById('cEmail').value,
+                        phone: document.getElementById('cPhone').value,
+                        address: document.getElementById('cAddr').value,
+                        segments, plans, displayId,
+                        dateCreated: new Date().toISOString()
+                    };
+
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
+                    showToast('Member enrollment successful');
+                    state.adminActiveView = 'clients';
+                }
+
+                if (formId === 'editMemberForm') {
+                    const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
+                    const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
+                    const clientRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.editingClient.id);
+                    
+                    await updateDoc(clientRef, {
+                        firstName: document.getElementById('cFirst').value,
+                        lastName: document.getElementById('cLast').value,
+                        email: document.getElementById('cEmail').value,
+                        phone: document.getElementById('cPhone').value,
+                        address: document.getElementById('cAddr').value,
+                        segments, plans
+                    });
+                    
+                    showToast('Member profile updated');
+                    state.editingClient = null;
+                    state.adminActiveView = 'clients';
+                }
+
+                if (formId === 'transactionEntryForm') {
+                    const amt = document.getElementById('tAmt').value;
+                    const planId = document.getElementById('tPlanSelect').value;
+                    const client = state.selectedClientForTrans;
+
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), {
+                        clientId: client.id,
+                        clientName: `${client.firstName} ${client.lastName}`,
+                        amount: amt,
+                        planId: planId,
+                        type: state.currentTransType,
+                        date: new Date().toISOString()
+                    });
+
+                    await triggerEmails('transaction', { client, amount: amt, type: state.currentTransType });
+                    showToast('Transaction logged to ledger');
+                    state.adminActiveView = 'history';
+                }
+
+                render();
+            } catch (err) {
+                console.error(err);
+                showToast(err.message, 'error');
+            } finally {
+                state.isProcessing = false;
+            }
+        }
+
+        window.onload = initApp;
     </script>
 </body>
 </html>

@@ -1,0 +1,802 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Users, 
+  PlusCircle, 
+  History, 
+  LayoutDashboard, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  UserCircle, 
+  FileText,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Menu,
+  X,
+  CreditCard,
+  Briefcase,
+  Baby,
+  ShieldCheck,
+  ArrowRight,
+  LogOut,
+  Wallet,
+  Lock,
+  ChevronUp,
+  ChevronDown,
+  Filter
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  query,
+  where,
+  getDocs
+} from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+
+// --- CONFIGURATION & CONSTANTS ---
+
+const THRIFT_PLANS = {
+  daily: [
+    { id: 'd1', label: '#150 daily pack #5,250', amount: 150, packValue: 5250 },
+    { id: 'd2', label: '#200 daily pack #10,000 section A', amount: 200, packValue: 10000 },
+    { id: 'd3', label: '#200 daily pack #10,000 section B', amount: 200, packValue: 10000 },
+    { id: 'd4', label: '#200 daily pack #10,000 section C', amount: 200, packValue: 10000 },
+    { id: 'd5', label: '#400 daily pack #12,000', amount: 400, packValue: 12000 },
+  ],
+  weekly: [
+    { id: 'w1', label: '#300 every Sundays pack #3000', amount: 300, packValue: 3000 },
+    { id: 'w2', label: '#1000 every 3 days pack #20,000', amount: 1000, packValue: 20000 },
+    { id: 'w3', label: '#5000 every 5 days pack #80,000', amount: 5000, packValue: 80000 },
+  ],
+  monthly: [
+    { id: 'm1', label: '#10,000 monthly pack #70,000', amount: 10000, packValue: 70000 },
+    { id: 'm2', label: '#15,000 monthly pack #90,000', amount: 15000, packValue: 90000 },
+    { id: 'm3', label: '#20,000 monthly pack #100,000', amount: 20000, packValue: 100000 },
+    { id: 'm4', label: '#20,000 monthly pack #120,000 section A', amount: 20000, packValue: 120000 },
+    { id: 'm5', label: '#20,000 monthly pack #120,000 section B', amount: 20000, packValue: 120000 },
+    { id: 'm6', label: '#20,000 monthly pack #120,000 section C', amount: 20000, packValue: 120000 },
+    { id: 'm7', label: '#30,000 monthly pack #150,000', amount: 30000, packValue: 150000 },
+    { id: 'm8', label: '#50,000 monthly pack #300,000 section A', amount: 50000, packValue: 300000 },
+    { id: 'm9', label: '#50,000 monthly pack #300,000 section B', amount: 50000, packValue: 300000 },
+    { id: 'm10', label: '#60,000 monthly pack #300,000', amount: 60000, packValue: 300000 },
+    { id: 'm11', label: '#100,000 monthly pack #500,000', amount: 100000, packValue: 500000 },
+    { id: 'm12', label: '#150,000 monthly pack #600,000', amount: 150000, packValue: 600000 },
+    { id: 'm13', label: '#200,000 monthly pack #1,000,000', amount: 200000, packValue: 1000000 },
+  ]
+};
+
+const CUSTOMER_SEGMENTS = [
+  { id: 'individual', label: 'Individual', icon: UserCircle },
+  { id: 'business', label: 'Business', icon: Briefcase },
+  { id: 'young_children', label: 'Young Children', icon: Baby },
+];
+
+// --- FIREBASE INITIALIZATION ---
+
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'femi-ajo-place';
+
+// --- MAIN APPLICATION COMPONENT ---
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [appState, setAppState] = useState('landing'); 
+  const [authError, setAuthError] = useState('');
+  
+  const [currentClient, setCurrentClient] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [activeView, setActiveView] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const clientsRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
+    const unsubClients = onSnapshot(clientsRef, (snapshot) => {
+      setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    const transRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
+    const unsubTrans = onSnapshot(transRef, (snapshot) => {
+      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => { unsubClients(); unsubTrans(); };
+  }, [user]);
+
+  const handleAdminLogin = (password) => {
+    if (password === 'admin123') { setAppState('admin-dash'); setAuthError(''); }
+    else { setAuthError('Invalid administrator credentials.'); }
+  };
+
+  const handleClientLogin = (clientId) => {
+    const found = clients.find(c => c.displayId === clientId.toUpperCase());
+    if (found) { setCurrentClient(found); setAppState('client-dash'); setAuthError(''); }
+    else { setAuthError('Client ID not found. Please contact admin.'); }
+  };
+
+  const handleLogout = () => {
+    setAppState('landing'); setCurrentClient(null); setAuthError(''); setActiveView('dashboard');
+  };
+
+  if (!user) return <div className="flex items-center justify-center h-screen bg-black text-white">Initializing Femi Ajo Place...</div>;
+
+  if (appState === 'landing') return <LandingPage onNavigate={setAppState} />;
+  if (appState === 'admin-login') return <AdminLoginPage onBack={() => setAppState('landing')} onLogin={handleAdminLogin} error={authError} />;
+  if (appState === 'client-login') return <ClientLoginPage onBack={() => setAppState('landing')} onLogin={handleClientLogin} error={authError} />;
+
+  return (
+    <div className="flex h-screen bg-gray-100 text-slate-800 font-sans overflow-hidden">
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#1A1A1A] text-white transition-all duration-300 flex flex-col shadow-xl z-20`}>
+        <div className="p-6 flex items-center gap-3 border-b border-zinc-800">
+          <div className="w-8 h-8 bg-[#8D6E63] rounded-lg flex items-center justify-center font-bold text-white shrink-0">F</div>
+          {isSidebarOpen && <span className="font-bold text-lg tracking-tight">Femi Ajo Place</span>}
+        </div>
+        <nav className="flex-1 mt-6 px-3 space-y-2">
+          <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" active={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} isOpen={isSidebarOpen} />
+          {appState === 'admin-dash' ? (
+            <>
+              <NavItem icon={<Users size={20} />} label="Clients" active={activeView === 'clients'} onClick={() => setActiveView('clients')} isOpen={isSidebarOpen} />
+              <NavItem icon={<PlusCircle size={20} />} label="New Portfolio" active={activeView === 'create'} onClick={() => setActiveView('create')} isOpen={isSidebarOpen} />
+              <NavItem icon={<History size={20} />} label="Global History" active={activeView === 'history'} onClick={() => setActiveView('history')} isOpen={isSidebarOpen} />
+            </>
+          ) : (
+            <>
+              <NavItem icon={<FileText size={20} />} label="My Thrift Plans" active={activeView === 'my-plans'} onClick={() => setActiveView('my-plans')} isOpen={isSidebarOpen} />
+              <NavItem icon={<History size={20} />} label="My History" active={activeView === 'my-history'} onClick={() => setActiveView('my-history')} isOpen={isSidebarOpen} />
+            </>
+          )}
+        </nav>
+        <div className="p-4 border-t border-zinc-800 space-y-4">
+          <button onClick={handleLogout} className="w-full py-2 px-3 bg-red-900/30 hover:bg-red-900/50 text-red-200 rounded-md text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
+            <LogOut size={14} /> {isSidebarOpen && "Sign Out"}
+          </button>
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="w-full flex items-center justify-center text-zinc-500 hover:text-white">
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 overflow-y-auto relative">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-zinc-200 px-8 py-4 flex justify-between items-center z-10">
+          <div>
+            <h1 className="text-xl font-bold text-[#3E2723]">{appState === 'admin-dash' ? 'Administrator Panel' : 'Client Member Area'}</h1>
+            <p className="text-xs text-zinc-500">{appState === 'admin-dash' ? 'Managing Femi Ajo Portfolios' : `Member: ${currentClient?.firstName} ${currentClient?.lastName}`}</p>
+          </div>
+          <div className="flex items-center gap-3">
+             {currentClient && (
+               <div className="text-right">
+                 <p className="font-bold text-sm">{currentClient.displayId}</p>
+                 <p className="text-[10px] uppercase tracking-wider text-[#8D6E63] font-bold">Standard Member</p>
+               </div>
+             )}
+             <div className="w-10 h-10 rounded-full bg-[#8D6E63] flex items-center justify-center text-white font-bold">{appState === 'admin-dash' ? 'AD' : currentClient?.firstName[0]}</div>
+          </div>
+        </header>
+        <div className="p-8">
+          {appState === 'admin-dash' ? (
+            <AdminView view={activeView} clients={clients} transactions={transactions} setActiveView={setActiveView} />
+          ) : (
+            <ClientView client={currentClient} transactions={transactions.filter(t => t.clientId === currentClient?.id)} view={activeView} />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// --- LANDING & LOGIN PAGES ---
+
+function LandingPage({ onNavigate }) {
+  return (
+    <div className="min-h-screen bg-[#FDFBF9] text-[#1A1A1A] font-sans">
+      <nav className="p-6 flex justify-between items-center border-b border-zinc-100 bg-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-[#1A1A1A] rounded-lg flex items-center justify-center font-bold text-white text-xl">F</div>
+          <span className="font-black text-xl tracking-tight">Femi Ajo Place</span>
+        </div>
+        <button onClick={() => onNavigate('admin-login')} className="text-sm font-bold text-[#8D6E63] hover:text-[#3E2723] flex items-center gap-2">
+          <ShieldCheck size={18} /> Admin
+        </button>
+      </nav>
+      <div className="max-w-6xl mx-auto px-6 py-20 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="space-y-8 animate-in fade-in slide-in-from-left duration-700">
+          <span className="px-4 py-1.5 bg-[#8D6E63]/10 text-[#8D6E63] rounded-full text-xs font-black uppercase tracking-widest">Premium Savings & Thrift</span>
+          <h1 className="text-6xl font-black leading-tight text-[#3E2723]">Modern Thrift, <br /> <span className="text-[#8D6E63]">Classic Reliability.</span></h1>
+          <p className="text-lg text-zinc-500 max-w-md">Welcome to Femi Ajo Place. We provide secure, flexible, and high-yield daily, weekly, and monthly thrift plans tailored for individuals, businesses, and the future of your children.</p>
+          <button onClick={() => onNavigate('client-login')} className="px-8 py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-black hover:scale-105 transition-all shadow-xl">Client Login <ArrowRight size={20} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in duration-700">
+          <BenefitCard icon={<Wallet size={32} />} title="Flexible Plans" desc="Over 20 savings packages across Daily, Weekly & Monthly cycles." />
+          <BenefitCard icon={<ShieldCheck size={32} />} title="Secure Assets" desc="Verified ledger systems and transparent transaction history." />
+          <BenefitCard icon={<Briefcase size={32} />} title="Business Support" desc="Specially curated segments for SME growth and sustainability." />
+          <BenefitCard icon={<Baby size={32} />} title="Child Future" desc="Secure your children's future with targeted long-term packs." />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminLoginPage({ onBack, onLogin, error }) {
+  const [pass, setPass] = useState('');
+  return (
+    <div className="min-h-screen bg-[#1A1A1A] flex flex-col items-center justify-center p-6">
+       <div className="w-full max-w-md bg-white rounded-3xl p-10 shadow-2xl space-y-8">
+          <div className="text-center">
+             <div className="w-16 h-16 bg-[#3E2723] rounded-2xl mx-auto flex items-center justify-center text-white mb-4"><Lock size={32} /></div>
+             <h2 className="text-2xl font-black text-[#3E2723]">Admin Portal</h2>
+             <p className="text-zinc-400 text-sm">Please verify your administrator identity</p>
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); onLogin(pass); }} className="space-y-6">
+            <Input label="Access Password" type="password" value={pass} onChange={setPass} required />
+            {error && <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 flex items-center gap-2 animate-bounce"><AlertCircle size={14} /> {error}</div>}
+            <button className="w-full py-4 bg-[#1A1A1A] text-white rounded-xl font-bold hover:bg-black transition-all">Unlock System</button>
+          </form>
+          <button onClick={onBack} className="w-full text-zinc-400 text-xs font-bold hover:text-zinc-600 transition-all">Back to Home</button>
+       </div>
+    </div>
+  );
+}
+
+function ClientLoginPage({ onBack, onLogin, error }) {
+  const [id, setId] = useState('');
+  return (
+    <div className="min-h-screen bg-[#FDFBF9] flex flex-col items-center justify-center p-6">
+       <div className="w-full max-w-md bg-white rounded-3xl p-10 shadow-2xl border border-zinc-100 space-y-8">
+          <div className="text-center">
+             <div className="w-16 h-16 bg-[#8D6E63] rounded-2xl mx-auto flex items-center justify-center text-white mb-4"><UserCircle size={32} /></div>
+             <h2 className="text-2xl font-black text-[#3E2723]">Client Login</h2>
+             <p className="text-zinc-400 text-sm">Enter your unique Femi Ajo ID to continue</p>
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); onLogin(id); }} className="space-y-6">
+            <Input label="Unique Client ID" placeholder="FAJ-2024-XXXX" value={id} onChange={setId} required />
+            {error && <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 flex items-center gap-2 animate-bounce"><AlertCircle size={14} /> {error}</div>}
+            <button className="w-full py-4 bg-[#8D6E63] text-white rounded-xl font-bold hover:bg-[#5D4037] transition-all shadow-lg">Access Dashboard</button>
+          </form>
+          <div className="pt-4 text-center">
+             <button onClick={onBack} className="text-[#8D6E63] text-xs font-bold hover:underline">Contact Office to Register</button>
+          </div>
+       </div>
+    </div>
+  );
+}
+
+function BenefitCard({ icon, title, desc }) {
+  return (
+    <div className="p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
+      <div className="text-[#8D6E63] group-hover:scale-110 transition-transform mb-4">{icon}</div>
+      <h3 className="font-bold text-[#3E2723] mb-2">{title}</h3>
+      <p className="text-xs text-zinc-400 leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+
+// --- ADMIN VIEWS ---
+
+function AdminView({ view, clients, transactions, setActiveView }) {
+  const [selectedUserForTransaction, setSelectedUserForTransaction] = useState(null);
+
+  switch (view) {
+    case 'dashboard':
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard label="Total Clients" value={clients.length} icon={<Users size={24} className="text-[#8D6E63]" />} subtext="Registered portfolios" />
+            <StatCard label="Total Inflow" value={`₦${transactions.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0).toLocaleString()}`} icon={<ArrowDownLeft size={24} className="text-green-500" />} subtext="Successful deposits" />
+            <StatCard label="Total Outflow" value={`₦${transactions.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0).toLocaleString()}`} icon={<ArrowUpRight size={24} className="text-red-500" />} subtext="Withdrawals/Payouts" />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
+              <h2 className="font-bold text-lg">Recently Created Portfolios</h2>
+              <button onClick={() => setActiveView('clients')} className="text-sm font-semibold text-[#8D6E63] hover:underline">Manage All Tables</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-zinc-50 text-xs uppercase text-zinc-500 font-bold">
+                  <tr>
+                    <th className="px-6 py-4">Client ID</th>
+                    <th className="px-6 py-4">Name</th>
+                    <th className="px-6 py-4">Contact</th>
+                    <th className="px-6 py-4">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {clients.slice().reverse().slice(0, 5).map((client) => (
+                    <tr key={client.id} className="hover:bg-zinc-50 transition-colors">
+                      <td className="px-6 py-4 font-mono text-[#8D6E63] font-bold">{client.displayId}</td>
+                      <td className="px-6 py-4 font-medium">{client.firstName} {client.lastName}</td>
+                      <td className="px-6 py-4 text-zinc-500">{client.phone}</td>
+                      <td className="px-6 py-4">
+                        <button onClick={() => { setSelectedUserForTransaction(client); setActiveView('transaction'); }} className="text-[#8D6E63] hover:text-[#3E2723] text-xs font-bold uppercase tracking-wider">Record Pay</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    case 'create': return <CreateClientForm onCreated={() => setActiveView('clients')} />;
+    case 'clients': return <AdminClientsTables clients={clients} transactions={transactions} onRecordTransaction={(c) => { setSelectedUserForTransaction(c); setActiveView('transaction'); }} onAddNew={() => setActiveView('create')} />;
+    case 'transaction': return <RecordTransaction client={selectedUserForTransaction} onCompleted={() => setActiveView('history')} onCancel={() => setActiveView('clients')} />;
+    case 'history': return <TransactionHistory transactions={transactions} />;
+    default: return null;
+  }
+}
+
+function AdminClientsTables({ clients, transactions, onRecordTransaction, onAddNew }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const categories = [
+    { id: 'daily', label: 'Daily Thrift Records', icon: <Wallet size={18} /> },
+    { id: 'weekly', label: 'Weekly Thrift Records', icon: <History size={18} /> },
+    { id: 'monthly', label: 'Monthly Thrift Records', icon: <CreditCard size={18} /> }
+  ];
+
+  return (
+    <div className="space-y-12 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-[#3E2723]">Portfolio Management</h2>
+          <p className="text-zinc-500 text-sm">Detailed inflow and outflow tracking per plan category</p>
+        </div>
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+            <input 
+              type="text" 
+              placeholder="Search ID or Name..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-[#8D6E63]/20 outline-none transition-all"
+            />
+          </div>
+          <button onClick={onAddNew} className="bg-[#1A1A1A] text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-black transition-all shadow-lg">
+            <PlusCircle size={16} /> Create
+          </button>
+        </div>
+      </div>
+
+      {categories.map(cat => (
+        <CategoryTable 
+          key={cat.id} 
+          category={cat} 
+          clients={clients} 
+          transactions={transactions}
+          searchTerm={searchTerm} 
+          onAction={onRecordTransaction} 
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategoryTable({ category, clients, transactions, searchTerm, onAction }) {
+  const [sortConfig, setSortConfig] = useState({ key: 'firstName', direction: 'asc' });
+
+  const filteredClients = useMemo(() => {
+    let list = clients.filter(client => {
+      const hasPlanInCategory = client.plans.some(planId => 
+        THRIFT_PLANS[category.id].some(p => p.id === planId)
+      );
+      const matchesSearch = 
+        client.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        client.lastName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        client.displayId.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return hasPlanInCategory && matchesSearch;
+    });
+
+    list.sort((a, b) => {
+      const valA = a[sortConfig.key]?.toString().toLowerCase() || '';
+      const valB = b[sortConfig.key]?.toString().toLowerCase() || '';
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [clients, searchTerm, category.id, sortConfig]);
+
+  const toggleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-[#8D6E63]">
+        {category.icon}
+        <h3 className="font-black uppercase tracking-widest text-xs">{category.label} ({filteredClients.length})</h3>
+      </div>
+      
+      <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-zinc-50 border-b border-zinc-100">
+              <tr className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">
+                <SortHeader label="ID" field="displayId" current={sortConfig} onSort={toggleSort} />
+                <SortHeader label="Client Name" field="firstName" current={sortConfig} onSort={toggleSort} />
+                <th className="px-6 py-4">Subscribed Plans</th>
+                <th className="px-6 py-4 text-center">Total In (₦)</th>
+                <th className="px-6 py-4 text-center">Total Out (₦)</th>
+                <th className="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-50">
+              {filteredClients.map(client => {
+                const specificPlans = THRIFT_PLANS[category.id].filter(p => client.plans.includes(p.id));
+                const clientTrans = transactions.filter(t => t.clientId === client.id);
+                
+                // Group totals for all plans in this specific category for this client
+                const totalIn = clientTrans
+                  .filter(t => t.type === 'in' && specificPlans.some(p => p.id === t.planId))
+                  .reduce((acc, t) => acc + Number(t.amount), 0);
+                  
+                const totalOut = clientTrans
+                  .filter(t => t.type === 'out' && specificPlans.some(p => p.id === t.planId))
+                  .reduce((acc, t) => acc + Number(t.amount), 0);
+
+                return (
+                  <tr key={client.id} className="hover:bg-zinc-50/50 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-[#8D6E63]">{client.displayId}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-[#3E2723]">{client.firstName} {client.lastName}</div>
+                      <div className="text-[10px] text-zinc-400">{client.phone}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        {specificPlans.map(p => (
+                          <div key={p.id} className="text-[10px] font-medium text-zinc-600 flex items-center gap-1">
+                            <div className="w-1 h-1 rounded-full bg-[#8D6E63]"></div> {p.label}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center font-bold text-green-600">
+                       ₦{totalIn.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-center font-bold text-red-600">
+                       ₦{totalOut.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => onAction(client)}
+                        className="px-3 py-1.5 bg-[#8D6E63]/10 text-[#8D6E63] rounded-lg text-[10px] font-black uppercase hover:bg-[#8D6E63] hover:text-white transition-all"
+                      >
+                        Record Pay
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredClients.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-zinc-300 italic text-xs">No matching portfolios for this plan type</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortHeader({ label, field, current, onSort }) {
+  const active = current.key === field;
+  return (
+    <th className="px-6 py-4 cursor-pointer hover:text-[#8D6E63] transition-colors" onClick={() => onSort(field)}>
+      <div className="flex items-center gap-1">
+        {label}
+        <div className="flex flex-col">
+          <ChevronUp size={10} className={`${active && current.direction === 'asc' ? 'text-[#8D6E63]' : 'text-zinc-300'}`} />
+          <ChevronDown size={10} className={`${active && current.direction === 'desc' ? 'text-[#8D6E63]' : 'text-zinc-300'}`} />
+        </div>
+      </div>
+    </th>
+  );
+}
+
+// --- PORTFOLIO CREATION ---
+
+function CreateClientForm({ onCreated }) {
+  const [formData, setFormData] = useState({
+    firstName: '', lastName: '', email: '', phone: '', address: '', segments: [], plans: []
+  });
+  const [loading, setLoading] = useState(false);
+
+  const toggleSelection = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].includes(value) ? prev[field].filter(v => v !== value) : [...prev[field], value]
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (formData.segments.length === 0 || formData.plans.length === 0) {
+      alert("Please select at least one segment and one plan"); return;
+    }
+    setLoading(true);
+    try {
+      const timestamp = Date.now().toString().slice(-4);
+      const uniqueId = `FAJ-${new Date().getFullYear()}-${timestamp}`;
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), {
+        ...formData, displayId: uniqueId, createdAt: new Date().toISOString()
+      });
+      onCreated();
+    } catch (err) { alert("Error creating client"); } finally { setLoading(false); }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-lg border border-zinc-100">
+      <h2 className="text-2xl font-bold mb-8 text-[#3E2723]">Create Client Portfolio</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-sm">
+        <Input label="First Name" value={formData.firstName} onChange={(v) => setFormData({...formData, firstName: v})} required />
+        <Input label="Last Name" value={formData.lastName} onChange={(v) => setFormData({...formData, lastName: v})} required />
+        <Input label="Email" type="email" value={formData.email} onChange={(v) => setFormData({...formData, email: v})} required />
+        <Input label="Phone" value={formData.phone} onChange={(v) => setFormData({...formData, phone: v})} required />
+        <div className="md:col-span-2"><Input label="Address" value={formData.address} onChange={(v) => setFormData({...formData, address: v})} required /></div>
+      </div>
+      <div className="space-y-8">
+        <section>
+          <h3 className="font-bold text-zinc-800 mb-4 text-xs uppercase tracking-wider">1. Customer Segments</h3>
+          <div className="flex gap-4 flex-wrap">
+            {CUSTOMER_SEGMENTS.map(s => (
+              <button key={s.id} type="button" onClick={() => toggleSelection('segments', s.id)} className={`flex items-center gap-2 px-6 py-3 rounded-xl border-2 transition-all ${formData.segments.includes(s.id) ? 'border-[#5D4037] bg-amber-50 text-[#5D4037]' : 'border-zinc-100 text-zinc-500'}`}>
+                <s.icon size={18} /><span className="font-bold text-sm">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section>
+          <h3 className="font-bold text-zinc-800 mb-4 text-xs uppercase tracking-wider">2. Thrift Plans</h3>
+          <div className="space-y-6">
+            {['daily', 'weekly', 'monthly'].map(cat => (
+              <div key={cat} className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#8D6E63]">{cat} Categories</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {THRIFT_PLANS[cat].map(plan => (
+                    <button key={plan.id} type="button" onClick={() => toggleSelection('plans', plan.id)} className={`text-left p-3 rounded-lg border text-xs transition-all ${formData.plans.includes(plan.id) ? 'border-[#5D4037] bg-amber-50 text-[#3E2723] font-bold' : 'border-zinc-100 text-zinc-600'}`}>
+                      {plan.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+      <button type="submit" disabled={loading} className="w-full mt-12 py-4 bg-[#1A1A1A] text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:opacity-50">
+        {loading ? 'Generating...' : 'Finalize Portfolio & Generate ID'}
+      </button>
+    </form>
+  );
+}
+
+// --- TRANSACTION LOGIC ---
+
+function RecordTransaction({ client, onCompleted, onCancel }) {
+  const [formData, setFormData] = useState({ type: 'in', amount: '', planId: '', notes: '', proof: null });
+  const [loading, setLoading] = useState(false);
+  if (!client) return null;
+  const activePlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].filter(p => client.plans.includes(p.id));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setLoading(true);
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), {
+        ...formData, clientId: client.id, clientName: `${client.firstName} ${client.lastName}`,
+        date: new Date().toISOString(), proofAttached: !!formData.proof
+      });
+      onCompleted();
+    } catch (err) { alert("Error saving transaction"); } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-lg border border-zinc-100 animate-in fade-in zoom-in duration-300">
+      <div className="flex justify-between items-start mb-6">
+        <div><h2 className="text-2xl font-bold text-[#3E2723]">Transaction Gateway</h2><p className="text-[#8D6E63] font-mono text-sm">{client.displayId} — {client.firstName}</p></div>
+        <button onClick={onCancel} className="text-zinc-400 hover:text-zinc-600"><X size={24} /></button>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex bg-zinc-100 p-1 rounded-xl">
+          <button type="button" onClick={() => setFormData({...formData, type: 'in'})} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${formData.type === 'in' ? 'bg-white text-green-600 shadow-sm' : 'text-zinc-500'}`}>Pay-In</button>
+          <button type="button" onClick={() => setFormData({...formData, type: 'out'})} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${formData.type === 'out' ? 'bg-white text-red-600 shadow-sm' : 'text-zinc-500'}`}>Pay-Out</button>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Amount (₦)" type="number" value={formData.amount} onChange={(v) => setFormData({...formData, amount: v})} required />
+          <div className="space-y-1.5"><label className="text-xs font-bold text-zinc-500 uppercase ml-1">Plan</label>
+            <select value={formData.planId} onChange={(e) => setFormData({...formData, planId: e.target.value})} className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 outline-none text-sm" required>
+              <option value="">Choose plan...</option>{activePlans.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1.5"><label className="text-xs font-bold text-zinc-500 uppercase ml-1">Proof of Transaction</label>
+          <div className="relative group text-center border-2 border-dashed border-zinc-200 rounded-xl p-8 bg-zinc-50 group-hover:border-[#8D6E63] transition-all">
+            <input type="file" onChange={(e) => setFormData({...formData, proof: e.target.files[0]})} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            <FileText size={32} className="mx-auto text-zinc-300 mb-2" />
+            <span className="text-xs font-bold text-zinc-500">{formData.proof ? formData.proof.name : 'Click to Upload Slip'}</span>
+          </div>
+        </div>
+        <button type="submit" disabled={loading} className="w-full py-4 bg-[#5D4037] text-white rounded-xl font-bold hover:bg-[#3E2723] transition-all shadow-xl disabled:opacity-50">{loading ? 'Recording...' : 'Authorize Transaction'}</button>
+      </form>
+    </div>
+  );
+}
+
+function TransactionHistory({ transactions }) {
+  const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <h2 className="text-2xl font-bold text-[#3E2723]">Transaction History</h2>
+      <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-zinc-50 text-[10px] uppercase text-zinc-400 font-black tracking-widest border-b border-zinc-200">
+            <tr><th className="px-6 py-4">Timestamp</th><th className="px-6 py-4">Client</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4 text-right">Reference</th></tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100 text-sm">
+            {sorted.map(t => (
+              <tr key={t.id} className="hover:bg-zinc-50 transition-colors">
+                <td className="px-6 py-4 text-zinc-500">{new Date(t.date).toLocaleDateString()}</td>
+                <td className="px-6 py-4 font-bold">{t.clientName}</td>
+                <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${t.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type === 'in' ? 'Deposit' : 'Payout'}</span></td>
+                <td className="px-6 py-4 font-bold">₦{Number(t.amount).toLocaleString()}</td>
+                <td className="px-6 py-4 text-right">{t.proofAttached && <span className="text-[#8D6E63] text-[10px] font-bold border border-[#8D6E63] px-2 py-1 rounded">RECEIPT</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// --- CLIENT VIEWS ---
+
+function ClientView({ client, transactions, view }) {
+  if (!client) return null;
+  switch (view) {
+    case 'dashboard':
+      const totalIn = transactions.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0);
+      const totalOut = transactions.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0);
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-[#1A1A1A] p-8 rounded-3xl text-white relative overflow-hidden shadow-2xl">
+               <div className="absolute top-0 right-0 p-4 opacity-10"><CreditCard size={120} /></div>
+               <p className="text-zinc-400 font-bold uppercase tracking-widest text-[10px] mb-1">Current Savings</p>
+               <h3 className="text-4xl font-bold mb-6">₦{(totalIn - totalOut).toLocaleString()}</h3>
+               <div className="flex gap-4"><div className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase">{client.displayId}</div><div className="px-3 py-1 bg-[#8D6E63] rounded-full text-[10px] font-bold uppercase">{client.plans.length} Active</div></div>
+            </div>
+            <div className="bg-white p-8 rounded-3xl border border-zinc-200 shadow-sm grid grid-cols-2 gap-4">
+              <div><p className="text-zinc-400 text-[10px] uppercase font-bold">Contact</p><p className="font-bold text-[#3E2723]">{client.phone}</p></div>
+              <div><p className="text-zinc-400 text-[10px] uppercase font-bold">Segment</p><p className="font-bold text-[#3E2723] uppercase">{client.segments.join(' / ')}</p></div>
+              <div className="col-span-2 pt-4 border-t border-zinc-50"><p className="text-zinc-400 text-[10px] uppercase font-bold">Address</p><p className="font-medium text-xs truncate">{client.address}</p></div>
+            </div>
+          </div>
+          <ClientPlansSection client={client} transactions={transactions} />
+        </div>
+      );
+    case 'my-plans': return <ClientPlansSection client={client} transactions={transactions} showTitle={true} />;
+    case 'my-history': return <TransactionHistory transactions={transactions} />;
+    default: return null;
+  }
+}
+
+function ClientPlansSection({ client, transactions, showTitle = false }) {
+  const categories = [{ id: 'daily', label: 'Daily Packs' }, { id: 'weekly', label: 'Weekly Cycles' }, { id: 'monthly', label: 'Monthly Contributions' }];
+  return (
+    <div className="space-y-10">
+      {showTitle && <h2 className="text-2xl font-bold text-[#3E2723]">Allocated Thrift Plans</h2>}
+      {categories.map(cat => {
+        const catPlans = THRIFT_PLANS[cat.id].filter(p => client.plans.includes(p.id));
+        if (catPlans.length === 0) return null;
+        return (
+          <section key={cat.id} className="space-y-4">
+            <h3 className="font-bold text-zinc-800 flex items-center gap-2"><div className="w-1.5 h-4 bg-[#8D6E63] rounded-full" />{cat.label}</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden overflow-x-auto">
+              <table className="w-full text-left min-w-[700px] text-sm">
+                <thead className="bg-zinc-50 text-[9px] uppercase text-zinc-400 font-black border-b border-zinc-100">
+                  <tr>
+                    <th className="px-6 py-4">Package</th>
+                    <th className="px-6 py-4 text-center">Base Unit</th>
+                    <th className="px-6 py-4 text-center">Target</th>
+                    <th className="px-6 py-4 text-center text-green-600">Total Contributed (In)</th>
+                    <th className="px-6 py-4 text-center text-red-600">Total Payout (Out)</th>
+                    <th className="px-6 py-4 text-center">Progress</th>
+                    <th className="px-6 py-4 text-right">Net Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {catPlans.map(plan => {
+                    const planTrans = transactions.filter(t => t.planId === plan.id);
+                    const totalIn = planTrans.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0);
+                    const totalOut = planTrans.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0);
+                    const saved = totalIn - totalOut;
+                    const progress = Math.min((saved / plan.packValue) * 100, 100);
+                    return (
+                      <tr key={plan.id} className="hover:bg-zinc-50/50">
+                        <td className="px-6 py-5 font-bold text-[#3E2723]">{plan.label}</td>
+                        <td className="px-6 py-5 text-center font-medium">₦{plan.amount.toLocaleString()}</td>
+                        <td className="px-6 py-5 text-center text-[#8D6E63] font-bold">₦{plan.packValue.toLocaleString()}</td>
+                        <td className="px-6 py-5 text-center text-green-700 font-bold">₦{totalIn.toLocaleString()}</td>
+                        <td className="px-6 py-5 text-center text-red-700 font-bold">₦{totalOut.toLocaleString()}</td>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-20 bg-zinc-100 h-1 rounded-full overflow-hidden"><div className="bg-[#5D4037] h-full" style={{ width: `${progress}%` }} /></div>
+                            <span className="text-[10px] font-black text-zinc-400">{Math.round(progress)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-right font-black">₦{saved.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// --- HELPERS ---
+
+function StatCard({ label, value, icon, subtext }) {
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm flex items-start gap-5">
+      <div className="w-12 h-12 rounded-2xl bg-zinc-50 flex items-center justify-center shrink-0">{icon}</div>
+      <div><p className="text-zinc-400 font-bold uppercase tracking-widest text-[9px] mb-1">{label}</p><h4 className="text-2xl font-black text-[#3E2723]">{value}</h4>{subtext && <p className="text-[10px] text-zinc-400 mt-1">{subtext}</p>}</div>
+    </div>
+  );
+}
+
+function Input({ label, type = 'text', value, onChange, required = false, placeholder = '' }) {
+  return (
+    <div className="space-y-1.5"><label className="text-xs font-bold text-zinc-500 uppercase ml-1">{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} placeholder={placeholder || `Enter ${label}`}
+        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#8D6E63]/20 text-sm transition-all" />
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick, isOpen }) {
+  return (
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-[#5D4037] text-white shadow-lg shadow-black/20' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
+      <span className="shrink-0">{icon}</span>{isOpen && <span className="font-medium text-sm">{label}</span>}
+    </button>
+  );
+}

@@ -102,41 +102,34 @@
             measurementId: "G-QY8SW1KHQZ"
         };
 
-        // Use standard environment config if available, otherwise use your provided config
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
             : myFirebaseConfig;
 
-        // Ensure we have a consistent ID for your data storage path
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'femi-ajo-base';
 
         let app, db, auth;
 
         async function initAuth() {
             try {
-                // Safety Timeout
-                const loadingTimeout = setTimeout(() => {
-                    const appDiv = document.getElementById('app');
-                    if (appDiv.innerText.includes('Connecting')) {
-                        showError("Firebase Connection Timeout. <br><br> 1. Check if <b>Anonymous Auth</b> is enabled in your Firebase Console. <br> 2. Add <b>femiajoplace.github.io</b> to Authorized Domains in Firebase Authentication Settings.");
-                    }
-                }, 15000);
-
+                // Initialize Firebase App
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                // Handle Authentication
+                const token = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) 
+                    ? __initial_auth_token 
+                    : null;
                 
                 if (token) {
                     await signInWithCustomToken(auth, token);
                 } else {
-                    // This requires "Anonymous" provider enabled in Firebase Console > Authentication > Sign-in method
+                    // This is likely where the error triggers if Auth is not enabled in Console
                     await signInAnonymously(auth);
                 }
 
                 onAuthStateChanged(auth, (user) => {
-                    clearTimeout(loadingTimeout);
                     state.user = user;
                     if (user) {
                         setupDataListeners();
@@ -145,15 +138,27 @@
                 });
             } catch (err) {
                 console.error("Firebase Initialization Error:", err);
-                showError("Error: " + err.message);
+                // Handle the specific 'configuration-not-found' error with clear instructions
+                if (err.code === 'auth/configuration-not-found' || err.message.includes('configuration-not-found')) {
+                    showError(`
+                        <b>Authentication Setup Required:</b><br><br>
+                        1. Go to your <a href="https://console.firebase.google.com/" target="_blank" class="underline text-white font-bold">Firebase Console</a>.<br>
+                        2. Go to <b>Authentication</b> > <b>Get Started</b>.<br>
+                        3. Click the <b>Sign-in method</b> tab.<br>
+                        4. Enable the <b>Anonymous</b> provider.<br>
+                        5. Also, go to <b>Settings</b> > <b>Authorized Domains</b> and add <code class="bg-black/20 p-1 rounded">femiajoplace.github.io</code>.
+                    `);
+                } else {
+                    showError("Error: " + err.message);
+                }
             }
         }
 
         function showError(msg) {
             const appDiv = document.getElementById('app');
             appDiv.innerHTML = `
-                <div class="flex items-center justify-center h-screen bg-ajo-black text-white p-6">
-                    <div class="max-w-md text-center space-y-6">
+                <div class="flex items-center justify-center min-h-screen bg-ajo-black text-white p-6">
+                    <div class="max-w-md text-center space-y-6 bg-zinc-900/50 p-8 rounded-3xl border border-white/10 shadow-2xl">
                         <div class="text-red-500 mb-2 font-bold text-xl uppercase tracking-widest flex items-center justify-center gap-2">
                             <i data-lucide="alert-triangle"></i> App Error
                         </div>
@@ -170,7 +175,6 @@
         }
 
         function setupDataListeners() {
-            // Path structure: artifacts / appId / public / data / collection
             const clientsRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
             onSnapshot(clientsRef, (snap) => {
                 state.clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -178,7 +182,7 @@
             }, (err) => {
                 console.error("Clients Listener Error:", err);
                 if (err.code === 'permission-denied') {
-                    showError("Firebase Permissions Denied. <br><br> Please set your Firestore rules to 'Test Mode' or allow read/write to the <b>artifacts</b> collection.");
+                    showError("Firebase Permissions Denied. <br><br> Ensure your Firestore rules are set to 'Test Mode' or allow read/write access to the artifacts collection.");
                 }
             });
 

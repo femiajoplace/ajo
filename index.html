@@ -137,10 +137,18 @@
         const EMAILJS_TRANS_TEMPLATE = "template_n0bhew9";
         const EMAILJS_PUBLIC_KEY = "vJ4gRPuC2_7BcxOh-";
 
-        // Environment Variables
-        const apiKey = ""; // Handled by environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'femi-ajo-v3-prod';
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Hardcoded Firebase Config for GitHub/Production usage
+        const firebaseConfig = {
+            apiKey: "AIzaSyCrn5fdt8n_RmPZmcnxzZsHgV6oqPIY-9o",
+            authDomain: "femiajo-6ed79.firebaseapp.com",
+            projectId: "femiajo-6ed79",
+            storageBucket: "femiajo-6ed79.firebasestorage.app",
+            messagingSenderId: "514997520498",
+            appId: "1:514997520498:web:249209dbb5c0f3d3361aeb",
+            measurementId: "G-QY8SW1KHQZ"
+        };
+
+        const appId = 'femi-ajo-v3-prod';
 
         // --- STATE ---
         let state = {
@@ -153,7 +161,7 @@
             currentClient: null,
             editingClient: null,
             selectedClientForTrans: null,
-            currentTransType: 'in', // Default to Pay-In
+            currentTransType: 'in', 
             clientsSearch: '',
             showSignupSuccess: false,
             lastSignupId: '',
@@ -168,6 +176,7 @@
         // --- HELPER FUNCTIONS ---
         window.showToast = (message, type = 'success') => {
             const container = document.getElementById('toast-container');
+            if (!container) return;
             const toast = document.createElement('div');
             const bg = type === 'success' ? 'bg-ajo-black text-white' : 'bg-red-600 text-white';
             const icon = type === 'success' ? 'check-circle' : 'alert-circle';
@@ -190,7 +199,7 @@
             state.error = '';
             state.mobileSidebarOpen = false;
             state.landingMenuOpen = false;
-            state.showSignupSuccess = false; // Ensure success modal is cleared on any navigation
+            state.showSignupSuccess = false; 
             render();
             window.scrollTo(0, 0);
         };
@@ -219,10 +228,19 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Authentication Protocol (Rule 3)
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
+                // Handle Auth securely for both Canvas and External Hosting (GitHub)
+                const customToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                
+                try {
+                    if (customToken) {
+                        // Attempt environment token login
+                        await signInWithCustomToken(auth, customToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (authErr) {
+                    // Fallback to anonymous if token mismatches (Common with custom Firebase keys)
+                    console.warn("Auth token mismatch, falling back to anonymous login.");
                     await signInAnonymously(auth);
                 }
 
@@ -234,8 +252,10 @@
 
                 emailjs.init(EMAILJS_PUBLIC_KEY);
             } catch (err) {
-                console.error(err);
-                state.error = "Failed to connect to secure servers.";
+                console.error("Critical Connection Error:", err);
+                // Clear loading screen even on error to show state.error
+                state.view = 'landing';
+                state.error = "Ledger Connection Failed. Please check your network.";
                 render();
             }
         }
@@ -243,17 +263,20 @@
         function setupRealtimeListeners() {
             if (!state.user) return;
 
-            // Clients Listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), (snap) => {
                 state.clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            }, (err) => console.error("Clients Listener Error:", err));
+            }, (err) => {
+                console.error("Clients Sync Error:", err);
+                if (err.code === 'permission-denied') {
+                    showToast("Access Restricted: Check security rules.", "error");
+                }
+            });
 
-            // Transactions Listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), (snap) => {
                 state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            }, (err) => console.error("Trans Listener Error:", err));
+            }, (err) => console.error("Transactions Sync Error:", err));
         }
 
         async function triggerEmails(type, data) {
@@ -273,13 +296,14 @@
                     });
                 }
             } catch (e) {
-                console.error("Email Notice Failed", e);
+                console.error("Email notification failed", e);
             }
         }
 
         // --- RENDER ENGINE ---
         function render() {
             const root = document.getElementById('app');
+            if (!root) return;
             let content = '';
 
             switch (state.view) {
@@ -337,6 +361,7 @@
                             <p class="text-lg text-zinc-500 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
                                 Femi Ajo is a structured financial discipline and goal-execution system that helps people not only save money, but use it intentionally to improve their lives.
                             </p>
+                            ${state.error ? `<p class="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold border border-red-100">${state.error}</p>` : ''}
                             <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
                                 <button onclick="window.navigate('client-login')" class="px-10 py-5 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow flex items-center justify-center gap-3">Member Portal <i data-lucide="arrow-right" size="16"></i></button>
                                 <button onclick="window.navigate('signup')" class="px-10 py-5 border-2 border-ajo-black text-ajo-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-black hover:text-white transition-all">Begin Saving</button>
@@ -531,7 +556,6 @@
 
             return `
                 <div class="flex h-screen overflow-hidden bg-white">
-                    <!-- Sidebar -->
                     <aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'}">
                         <div class="p-8 flex items-center gap-4 border-b border-white/5 mb-6">
                             <div class="w-10 h-10 bg-ajo-brown rounded-xl flex items-center justify-center font-black shadow-lg">F</div>
@@ -557,7 +581,6 @@
                         </div>
                     </aside>
 
-                    <!-- Main Content -->
                     <main class="flex-1 overflow-y-auto w-full relative bg-zinc-50">
                         <header class="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-6 lg:px-12 py-4 flex justify-between items-center z-40">
                             <div class="flex items-center gap-4">
@@ -603,7 +626,6 @@
             }
         }
 
-        // --- ADMIN COMPONENTS ---
         function renderAdminSummary() {
             const tIn = state.transactions.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
             const tOut = state.transactions.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
@@ -812,6 +834,7 @@
 
         function renderTransactionPanel() {
             const c = state.selectedClientForTrans;
+            if (!c) return '';
             const cPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].filter(p => (c.plans || []).includes(p.id));
             
             return `
@@ -859,7 +882,6 @@
             `;
         }
 
-        // --- MEMBER COMPONENTS ---
         function renderMemberSummary() {
             const c = state.currentClient;
             const t = state.transactions.filter(x => x.clientId === c.id);
@@ -963,8 +985,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function renderProfileItem(l, v) {
@@ -1006,7 +1027,7 @@
                                             <td class="px-10 py-8 text-right font-black text-base ${t.type === 'in' ? 'text-green-700' : 'text-ajo-black'}">₦${Number(t.amount).toLocaleString()}</td>
                                         </tr>
                                     `).join('')}
-                                    ${sorted.length === 0 ? `<tr><td colspan="4" class="px-10 py-20 text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest">No ledger entries found</td></tr>` : ''}
+                                    ${sorted.length === 0 ? `<tr><td colspan="${isClient ? 3 : 4}" class="px-10 py-20 text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest">No ledger entries found</td></tr>` : ''}
                                 </tbody>
                             </table>
                         </div>
@@ -1032,26 +1053,23 @@
             `;
         }
 
-        // --- EVENT ATTACHMENT ---
         function attachDomEvents() {
-            // Member/Admin Login Forms
             const forms = ['clientLoginForm', 'adminLoginForm', 'signupForm', 'createMemberForm', 'editMemberForm', 'transactionEntryForm'];
-            
             forms.forEach(formId => {
                 const el = document.getElementById(formId);
                 if (el) el.onsubmit = (e) => handleFormSubmit(e, formId);
             });
 
-            // Search Logic (Improved to maintain focus)
             const searchInput = document.getElementById('clientSearchInput');
             if (searchInput) {
                 searchInput.oninput = (e) => {
                     state.clientsSearch = e.target.value;
                     render();
-                    // Re-focus after render
                     const input = document.getElementById('clientSearchInput');
-                    input.focus();
-                    input.setSelectionRange(input.value.length, input.value.length);
+                    if (input) {
+                        input.focus();
+                        input.setSelectionRange(input.value.length, input.value.length);
+                    }
                 };
             }
         }

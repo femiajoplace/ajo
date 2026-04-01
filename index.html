@@ -92,14 +92,13 @@
         };
 
         // --- FIREBASE CONFIGURATION ---
-        // IMPORTANT: Replace this placeholder with your actual config from the Firebase Console (Settings > General > Your apps)
         const myFirebaseConfig = {
             apiKey: "AIzaSyCrn5fdt8n_RmPZmcnxzZsHgV6oqPIY-9o",
             authDomain: "femiajo-6ed79.firebaseapp.com",
             projectId: "femiajo-6ed79",
             storageBucket: "femiajo-6ed79.firebasestorage.app",
             messagingSenderId: "514997520498",
-            appId: "1:514997520498:web:249209dbb5c0f3d3361aeb"
+            appId: "1:514997520498:web:249209dbb5c0f3d3361aeb", // Fixed: Added missing comma
             measurementId: "G-QY8SW1KHQZ"
         };
 
@@ -113,6 +112,14 @@
 
         async function initAuth() {
             try {
+                // Set a timeout for loading
+                const loadingTimeout = setTimeout(() => {
+                    const appDiv = document.getElementById('app');
+                    if (appDiv.innerText.includes('Loading')) {
+                        showError("The connection is taking too long. Please check your Firebase settings or internet connection.");
+                    }
+                }, 10000);
+
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -126,32 +133,36 @@
                 }
 
                 onAuthStateChanged(auth, (user) => {
+                    clearTimeout(loadingTimeout);
                     state.user = user;
                     if (user) setupDataListeners();
                     render();
                 });
             } catch (err) {
+                clearTimeout(loadingTimeout);
                 console.error("Firebase Initialization Error:", err);
-                const appDiv = document.getElementById('app');
-                appDiv.innerHTML = `
-                    <div class="flex items-center justify-center h-screen bg-ajo-black text-white p-6">
-                        <div class="max-w-md text-center space-y-4">
-                            <div class="text-red-500 mb-2 font-bold text-xl uppercase tracking-widest flex items-center justify-center gap-2">
-                                <i data-lucide="alert-triangle"></i> Configuration Required
-                            </div>
-                            <p class="text-zinc-400 text-sm">
-                                This application requires a valid Firebase configuration to run on GitHub Pages. 
-                                Please open the code in your editor and update the <b>myFirebaseConfig</b> object with your credentials from the Firebase Console.
-                            </p>
-                            <div class="p-4 bg-zinc-900 rounded-lg text-left text-[10px] font-mono text-ajo-brown">
-                                // Update this section in index.html<br>
-                                const myFirebaseConfig = { ... };
-                            </div>
-                        </div>
-                    </div>
-                `;
-                lucide.createIcons();
+                showError(err.message);
             }
+        }
+
+        function showError(msg) {
+            const appDiv = document.getElementById('app');
+            appDiv.innerHTML = `
+                <div class="flex items-center justify-center h-screen bg-ajo-black text-white p-6">
+                    <div class="max-w-md text-center space-y-4">
+                        <div class="text-red-500 mb-2 font-bold text-xl uppercase tracking-widest flex items-center justify-center gap-2">
+                            <i data-lucide="alert-triangle"></i> App Error
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            ${msg}
+                        </p>
+                        <p class="text-zinc-500 text-[11px] pt-4">
+                            Ensure your Firebase configuration in the <b>myFirebaseConfig</b> section of the code is correct.
+                        </p>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
         }
 
         function setupDataListeners() {
@@ -159,7 +170,12 @@
             onSnapshot(clientsRef, (snap) => {
                 state.clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            }, (err) => console.error("Clients Listener Error:", err));
+            }, (err) => {
+                console.error("Clients Listener Error:", err);
+                if (err.code === 'permission-denied') {
+                    showError("Firebase Permissions Error: Ensure your Firestore security rules allow read/write access to the 'artifacts' path.");
+                }
+            });
 
             const transRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
             onSnapshot(transRef, (snap) => {

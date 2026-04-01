@@ -38,6 +38,7 @@
 
         .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         
+        /* Tight layout adjustments */
         .hero-section { padding-top: 1rem; padding-bottom: 2rem; }
         @media (min-width: 1024px) {
             .hero-section { padding-top: 3rem; padding-bottom: 4rem; }
@@ -52,6 +53,13 @@
         .modal-blur {
             backdrop-filter: blur(8px);
             background-color: rgba(15, 15, 15, 0.8);
+        }
+        
+        /* Interactive Card Effects */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -108,7 +116,7 @@
         const EMAILJS_SERVICE_ID = "service_mdkqac1";
         const EMAILJS_SIGNUP_TEMPLATE = "template_h53p6po";
         const EMAILJS_TRANS_TEMPLATE = "template_n0bhew9";
-        const EMAILJS_PUBLIC_KEY = "vJ4gRPuC2_7BcxOh-";
+        const EMAILJS_PUBLIC_KEY = "vJ4gRPuC2_7BcxOh-"; // Ensure this is correct
 
         emailjs.init(EMAILJS_PUBLIC_KEY);
 
@@ -129,6 +137,7 @@
             mobileSidebarOpen: false,
             selectedClientForTrans: null,
             clientsSearch: '',
+            landingMenuOpen: false
         };
 
         // --- FIREBASE ---
@@ -142,15 +151,23 @@
             measurementId: "G-QY8SW1KHQZ"
         };
 
-        const appId = 'femi-ajo-production-v2';
+        const appId = 'femi-ajo-production-v3';
         let app, db, auth;
 
-        // --- GLOBAL LOGIC ---
-        window.navigate = (v) => { state.view = v; state.error = ''; state.mobileSidebarOpen = false; render(); window.scrollTo(0, 0); };
+        // --- GLOBAL LOGIC ATTACHMENTS ---
+        window.navigate = (v) => { 
+            state.view = v; 
+            state.error = ''; 
+            state.mobileSidebarOpen = false; 
+            state.landingMenuOpen = false;
+            render(); 
+            window.scrollTo(0, 0); 
+        };
         window.navigateAdmin = (v) => { state.adminActiveView = v; state.mobileSidebarOpen = false; render(); };
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
         window.handleLogout = () => { state.view = 'landing'; state.currentClient = null; state.mobileSidebarOpen = false; render(); };
         window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; render(); };
+        window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.closeSignupSuccess = () => { state.showSignupSuccess = false; window.navigate('client-login'); };
 
         // --- CORE FUNCTIONS ---
@@ -190,7 +207,7 @@
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
                         name: "Admin",
                         transaction_type: "Registration",
-                        amount: `New User: ${data.firstName} (${data.displayId})`,
+                        amount: `New User: ${data.firstName} ${data.lastName} (${data.displayId})`,
                         to_email: "femiajoplace@gmail.com"
                     });
                 } else if(type === 'transaction') {
@@ -209,7 +226,7 @@
             const cleanId = id.trim().toUpperCase();
             const found = state.clients.find(c => c.displayId === cleanId);
             if (found) { state.currentClient = found; state.view = 'client-dash'; state.error = ''; } 
-            else { state.error = 'Invalid Access ID.'; }
+            else { state.error = 'Invalid Access ID. Please verify your email.'; }
             render();
         }
 
@@ -231,11 +248,7 @@
                 case 'admin-dash': html = renderDashboardLayout('admin'); break;
                 case 'client-dash': html = renderDashboardLayout('client'); break;
             }
-            
-            if(state.showSignupSuccess) {
-                html += renderSuccessModal();
-            }
-
+            if(state.showSignupSuccess) html += renderSuccessModal();
             appDiv.innerHTML = html;
             lucide.createIcons();
             attachListeners();
@@ -244,126 +257,118 @@
         function renderSuccessModal() {
             return `
                 <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-blur animate-in fade-in duration-300">
-                    <div class="bg-white rounded-[3rem] p-10 sm:p-14 max-w-lg w-full text-center shadow-2xl premium-shadow animate-in zoom-in duration-500">
-                        <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8">
-                            <i data-lucide="check-circle" class="text-green-500" size="48"></i>
+                    <div class="bg-white rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-500">
+                        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="check-circle" class="text-green-500" size="32"></i>
                         </div>
-                        <h3 class="text-2xl font-black text-ajo-black mb-4 uppercase tracking-tighter">Registration confirmed</h3>
-                        <p class="text-zinc-500 text-sm leading-relaxed mb-10">
-                            Your savings portfolio has been initialized. <br>Please check your email <b>(${state.lastGeneratedId})</b> for your unique client ID to access your dashboard.
+                        <h3 class="text-xl font-black text-ajo-black mb-3 uppercase tracking-tighter">Registration confirmed</h3>
+                        <p class="text-zinc-500 text-sm leading-relaxed mb-8">
+                            Your savings portfolio has been initialized. <br>Please check <b>${state.lastGeneratedId}</b> for your unique ID.
                         </p>
-                        <button onclick="window.closeSignupSuccess()" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all">Continue to Login</button>
+                        <button onclick="window.closeSignupSuccess()" class="w-full py-4 bg-ajo-black text-white rounded-2xl font-black uppercase tracking-widest text-xs">Continue to Login</button>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
         function renderLanding() {
             return `
                 <div class="min-h-screen bg-white">
-                    <nav class="px-4 sm:px-10 py-4 flex justify-between items-center border-b sticky top-0 bg-white/80 backdrop-blur-xl z-50">
+                    <nav class="px-4 sm:px-10 py-4 flex justify-between items-center border-b border-zinc-100 sticky top-0 bg-white/90 backdrop-blur-xl z-50">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-ajo-black rounded-xl flex items-center justify-center font-bold text-white shadow-lg">F</div>
+                            <div class="w-9 h-9 bg-ajo-black rounded-lg flex items-center justify-center font-bold text-white shadow-lg">F</div>
                             <span class="font-black text-lg sm:text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <button onclick="window.navigate('admin-login')" class="hidden md:block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-ajo-brown transition-colors">Admin</button>
-                            <button onclick="window.navigate('client-login')" class="px-6 py-3 bg-ajo-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
+                        
+                        <!-- Desktop Nav -->
+                        <div class="hidden md:flex items-center gap-8">
+                            <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-ajo-brown transition-colors">Admin Portal</button>
+                            <button onclick="window.navigate('client-login')" class="px-6 py-2.5 bg-ajo-black text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
                         </div>
+
+                        <!-- Mobile Menu Trigger -->
+                        <button onclick="window.toggleLandingMenu()" class="md:hidden p-2 text-ajo-black"><i data-lucide="menu"></i></button>
                     </nav>
 
-                    <!-- Hero Section -->
-                    <div class="max-w-7xl mx-auto px-6 hero-section grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-                        <div class="space-y-6 text-center lg:text-left">
-                            <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-ajo-cream text-ajo-brown rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest border border-ajo-brown/10">
-                                <i data-lucide="award" size="14"></i> 3+ Years of Consistent Operation
+                    <!-- Mobile Menu Overlay -->
+                    ${state.landingMenuOpen ? `
+                    <div class="fixed inset-0 z-[60] bg-ajo-black flex flex-col p-8 animate-in slide-in-from-top duration-300">
+                        <div class="flex justify-between items-center mb-12">
+                            <div class="font-black text-white text-lg">MENU</div>
+                            <button onclick="window.toggleLandingMenu()" class="text-white"><i data-lucide="x"></i></button>
+                        </div>
+                        <div class="space-y-6 flex-1">
+                            <button onclick="window.navigate('client-login')" class="w-full py-5 bg-white text-ajo-black rounded-2xl font-black uppercase tracking-widest text-xs">Member Login</button>
+                            <button onclick="window.navigate('signup')" class="w-full py-5 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-xs">Create Account</button>
+                            <button onclick="window.navigate('admin-login')" class="w-full py-5 text-zinc-500 font-black uppercase tracking-widest text-xs italic">Admin Access</button>
+                        </div>
+                    </div>` : ''}
+
+                    <div class="max-w-7xl mx-auto px-6 hero-section grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+                        <div class="space-y-5 text-center lg:text-left">
+                            <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-ajo-cream text-ajo-brown rounded-full text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10">
+                                <i data-lucide="award" size="12"></i> 3+ Years Experience
                             </div>
                             <h1 class="text-5xl sm:text-7xl font-black leading-[1.05] text-ajo-black tracking-tighter">
                                 Intentional <br><span class="gradient-text">Milestones.</span>
                             </h1>
                             <p class="text-base sm:text-lg text-zinc-500 max-w-md mx-auto lg:mx-0 leading-relaxed font-medium">
-                                Femi Ajo is a structured financial discipline and goal-execution system helping members use money intentionally to improve their lives.
+                                Femi Ajo is a structured financial discipline and goal-execution system helping members improve their lives.
                             </p>
-                            <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
-                                <button onclick="window.navigate('client-login')" class="px-10 py-5 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow flex items-center justify-center gap-2">Member Dashboard <i data-lucide="arrow-right" size="16"></i></button>
+                            <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
+                                <button onclick="window.navigate('client-login')" class="px-10 py-5 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow flex items-center justify-center gap-2">Member Login <i data-lucide="arrow-right" size="16"></i></button>
                                 <button onclick="window.navigate('signup')" class="px-10 py-5 border-2 border-ajo-black text-ajo-black rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-black hover:text-white transition-all">Create Portfolio</button>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             ${renderBenefit('shield-check', 'Strong Foundation', 'Built on trust, reliability, and proven execution.')}
                             ${renderBenefit('layers', 'Organized System', 'Disciplined and transparent thrift coordination.')}
-                            ${renderBenefit('target', 'Purpose Driven', 'Save towards business, rent, education, or projects.')}
+                            ${renderBenefit('target', 'Purpose Driven', 'Save towards business, rent, or assets.')}
                             ${renderBenefit('zap', 'Financial Action', 'Converting savings into real-life outcomes.')}
                         </div>
                     </div>
 
                     <!-- What We Are Section -->
-                    <section class="bg-ajo-black text-white py-20 rounded-[3.5rem] mx-4 sm:mx-6 shadow-2xl relative overflow-hidden">
-                        <div class="max-w-7xl mx-auto px-10 relative z-10 space-y-20">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16">
+                    <section class="bg-ajo-black text-white py-16 rounded-[3.5rem] mx-4 sm:mx-6 shadow-2xl relative overflow-hidden">
+                        <div class="max-w-7xl mx-auto px-10 relative z-10 space-y-16">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 text-center sm:text-left">
                                 <div class="space-y-6">
                                     <h2 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.3em]">The System</h2>
                                     <h3 class="text-3xl sm:text-4xl font-black tracking-tight">What We Are</h3>
                                     <p class="text-zinc-400 text-sm leading-relaxed">
-                                        Femi Ajo Place is a structured thrift coordination system (Ajo) designed to help individuals and groups save in a disciplined, transparent, and organized manner. With over 3 years of consistent operation and a growing customer base of over 50 active clients, we have built a strong foundation of trust and reliability. This is not a concept—it is a tested system with real results.
+                                        Femi Ajo Place is a structured thrift coordination system designed to help individuals and groups save in a disciplined, transparent, and organized manner. With over 3 years of operation and 50+ active clients, we have built a foundation of trust.
                                     </p>
-                                    <div class="bg-white/5 p-6 rounded-2xl border border-white/5">
-                                        <h4 class="text-ajo-brown text-[10px] font-black uppercase tracking-widest mb-4">Rotational Contribution Model</h4>
-                                        <ul class="space-y-3 text-xs text-zinc-300 font-medium">
-                                            <li class="flex items-center gap-3"><i data-lucide="check" size="14" class="text-ajo-brown"></i> Contribute daily, weekly, or monthly</li>
-                                            <li class="flex items-center gap-3"><i data-lucide="check" size="14" class="text-ajo-brown"></i> Participate in structured savings cycles</li>
-                                            <li class="flex items-center gap-3"><i data-lucide="check" size="14" class="text-ajo-brown"></i> Predefined and transparent payout schedule</li>
-                                        </ul>
+                                    <div class="flex gap-10 border-t border-white/5 pt-8 justify-center sm:justify-start">
+                                        <div><p class="text-ajo-brown font-black text-4xl tracking-tighter">50+</p><p class="text-[9px] uppercase font-black text-zinc-500 mt-1">Active Clients</p></div>
+                                        <div><p class="text-ajo-brown font-black text-4xl tracking-tighter">3yr</p><p class="text-[9px] uppercase font-black text-zinc-500 mt-1">Execution</p></div>
                                     </div>
                                 </div>
-                                <div class="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[2.5rem] space-y-8">
-                                    <h4 class="font-black text-ajo-brown text-[10px] uppercase tracking-widest">Our Unique Approach</h4>
-                                    <p class="text-sm text-zinc-200 font-bold leading-relaxed">Beyond simple thrift collection, Femi Ajo Place delivers a purpose-driven savings system.</p>
+                                <div class="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] space-y-8">
+                                    <h4 class="font-black text-ajo-brown text-[10px] uppercase tracking-widest text-center sm:text-left">Our Unique Approach</h4>
                                     <ul class="space-y-4 text-xs text-zinc-300">
-                                        <li class="flex items-start gap-3"><i data-lucide="check-circle" class="text-ajo-brown mt-0.5" size="14"></i> Save towards specific goals (rent, assets, projects).</li>
-                                        <li class="flex items-start gap-3"><i data-lucide="check-circle" class="text-ajo-brown mt-0.5" size="14"></i> Build financial discipline and eliminate unstructured habits.</li>
-                                        <li class="flex items-start gap-3"><i data-lucide="check-circle" class="text-ajo-brown mt-0.5" size="14"></i> Convert consistent savings into real-life progress.</li>
+                                        <li class="flex items-start gap-3"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Save towards Business, Rent, Education, Assets.</li>
+                                        <li class="flex items-start gap-3"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Build financial discipline and eliminate unstructured habits.</li>
+                                        <li class="flex items-start gap-3"><i data-lucide="check" class="text-ajo-brown mt-0.5" size="14"></i> Convert consistent savings into real-life progress.</li>
                                     </ul>
-                                    <p class="text-[10px] text-zinc-500 font-medium pt-4 border-t border-white/5">We don’t just help people save—we help them use their money intentionally.</p>
                                 </div>
                             </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 pt-10 border-t border-white/5 text-center sm:text-left">
+                                <div class="space-y-3"><p class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Mission</p><p class="text-lg font-bold leading-relaxed italic text-zinc-200">"To provide a structured and reliable thrift system that enables individuals to save consistently and achieve milestones."</p></div>
+                                <div class="space-y-3"><p class="text-ajo-brown text-[10px] font-black uppercase tracking-widest">Vision</p><p class="text-lg font-bold leading-relaxed italic text-zinc-200">"To become a trusted platform for structured savings, empowering communities through purposeful financial action."</p></div>
+                            </div>
                         </div>
                     </section>
 
-                    <!-- Mission, Vision & Values Grid -->
-                    <section class="py-20 max-w-7xl mx-auto px-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
-                            <div class="p-10 bg-ajo-cream rounded-[2.5rem] border border-ajo-brown/5">
-                                <h3 class="text-ajo-brown text-[10px] font-black uppercase tracking-widest mb-6">Mission Statement</h3>
-                                <p class="text-xl font-bold leading-relaxed text-ajo-black italic">"To provide a structured and reliable thrift system that enables individuals to save consistently, build financial discipline, and achieve meaningful financial goals with confidence."</p>
-                            </div>
-                            <div class="p-10 bg-ajo-cream rounded-[2.5rem] border border-ajo-brown/5">
-                                <h3 class="text-ajo-brown text-[10px] font-black uppercase tracking-widest mb-6">Vision Statement</h3>
-                                <p class="text-xl font-bold leading-relaxed text-ajo-black italic">"To become a trusted and widely recognized platform for structured savings, empowering communities through discipline, transparency, and purposeful financial action."</p>
-                            </div>
-                        </div>
-
-                        <div class="text-center mb-12">
-                            <h2 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.4em]">Core Value Proposition</h2>
-                        </div>
-                        <div class="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
-                            ${renderValue('Structure', 'Organized System')}${renderValue('Trust', 'Transparent Processes')}${renderValue('Discipline', 'Enforced Cycles')}${renderValue('Purpose', 'Goal-Oriented')}${renderValue('Execution', 'Real Life Outcomes')}
-                        </div>
+                    <section class="py-16 max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
+                        ${renderValue('Structure', 'Organized')}${renderValue('Trust', 'Transparent')}${renderValue('Discipline', 'Enforced Cycles')}${renderValue('Purpose', 'Goal-Oriented')}${renderValue('Execution', 'Real Results')}
                     </section>
 
-                    <!-- Disclaimer -->
-                    <section class="bg-red-50 py-16 border-y border-red-100">
-                        <div class="max-w-4xl mx-auto px-6 text-center space-y-6">
-                            <div class="inline-flex items-center gap-3 px-4 py-2 bg-white text-red-700 text-[10px] font-black uppercase rounded-full shadow-sm border border-red-100">
-                                <i data-lucide="shield-alert" size="14"></i> What We Are Not
-                            </div>
-                            <p class="text-red-900/60 text-[11px] leading-relaxed italic font-medium max-w-2xl mx-auto">
-                                Femi Ajo Place does not operate as a commercial bank, microfinance bank, fintech platform, or cooperative society. We do not engage in lending, interest-based services, or regulated deposit-taking activities. Our focus is financial discipline and goal execution.
-                            </p>
-                        </div>
+                    <section class="max-w-4xl mx-auto px-6 py-12 text-center">
+                        <div class="inline-block px-4 py-2 bg-red-50 text-red-700 text-[10px] font-black uppercase rounded-full mb-4">Regulatory Notice</div>
+                        <p class="text-zinc-500 text-[11px] leading-relaxed italic font-medium">Femi Ajo Place is not a commercial bank. We are a structured savings coordination service.</p>
                     </section>
 
-                    <footer class="py-12 px-6 text-center border-t border-zinc-50 uppercase tracking-[0.3em] text-zinc-400 text-[9px] font-black">© 2024 Femi Ajo Place Premium Coordination</footer>
+                    <footer class="py-10 px-6 text-center border-t border-zinc-50 uppercase tracking-[0.4em] text-zinc-400 text-[9px] font-black">© 2024 Femi Ajo Place Coordination</footer>
                 </div>`;
         }
 
@@ -372,25 +377,51 @@
         }
 
         function renderValue(t, s) {
-            return `<div><p class="text-ajo-black font-black uppercase text-[10px] tracking-widest mb-1">${t}</p><p class="text-[8px] text-zinc-400 font-bold uppercase tracking-wider">${s}</p></div>`;
+            return `<div><p class="text-ajo-black font-black uppercase text-[10px] tracking-widest mb-1">${t}</p><p class="text-[8px] text-zinc-400 font-bold uppercase">${s}</p></div>`;
         }
 
         function renderSignup() {
-            return `<div class="min-h-screen bg-ajo-cream flex items-center justify-center p-4"><form id="signupForm" class="w-full max-w-2xl bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl border space-y-8 animate-in zoom-in overflow-y-auto max-h-[90vh]"><div class="text-center"><h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Registration</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-6"><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">First Name</label><input type="text" id="sFirst" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm outline-none" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Last Name</label><input type="text" id="sLast" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm outline-none" required></div></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Email</label><input type="email" id="sEmail" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm outline-none" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest text-[9px]">Contact Phone</label><input type="text" id="sPhone" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm outline-none" required></div><div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Address</label><input type="text" id="sAddr" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm outline-none" required></div><div class="space-y-4"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Customer Segment</p><div class="flex flex-wrap gap-2">${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-4 py-2 border rounded-xl cursor-pointer has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="sSegments" value="${s}" class="hidden"><span class="text-[10px] font-black uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-6"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `
+            return `
+                <div class="min-h-screen bg-ajo-cream flex items-center justify-center p-4">
+                    <form id="signupForm" class="w-full max-w-2xl bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-2xl border space-y-8 animate-in zoom-in overflow-y-auto max-h-[90vh]">
+                        <div class="text-center"><h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Registration</h2></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">First Name</label><input type="text" id="sFirst" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div>
+                            <div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Last Name</label><input type="text" id="sLast" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div>
+                        </div>
+                        <div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Email Address</label><input type="email" id="sEmail" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div>
+                        <div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Phone Number</label><input type="text" id="sPhone" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div>
+                        <div class="space-y-1"><label class="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Address</label><input type="text" id="sAddr" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm" required></div>
+                        
+                        <div class="space-y-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Customer Segment</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-5 py-3 border rounded-2xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="sSegments" value="${s}" class="hidden"><span class="text-[10px] font-black uppercase">${s}</span></label>`).join('')}
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-2">Subscription Cycle</p>
+                            ${['daily', 'weekly', 'monthly'].map(cat => `
                                 <div class="space-y-2">
-                                    <h4 class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">${cat}</h4>
+                                    <h4 class="text-[8px] font-black text-zinc-400 uppercase tracking-widest">${cat} Options</h4>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        ${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-3 border rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50"><input type="checkbox" name="sPlans" value="${p.id}" class="w-4 h-4 accent-ajo-brown"><span class="text-[10px] font-bold">${p.label}</span></label>`).join('')}
+                                        ${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-4 border border-zinc-100 rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50"><input type="checkbox" name="sPlans" value="${p.id}" class="w-4 h-4 accent-ajo-brown"><span class="text-[10px] font-bold text-ajo-black">${p.label}</span></label>`).join('')}
                                     </div>
-                                </div>`).join('')}</div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all">Submit Enrollment</button><button type="button" onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] font-black uppercase">Cancel</button></form></div>`;
+                                </div>`).join('')}
+                        </div>
+                        <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all">Initialize Membership</button>
+                        <button type="button" onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] font-black uppercase">Cancel</button>
+                    </form>
+                </div>`;
         }
 
         function renderAdminLogin() {
-            return `<div class="min-h-screen bg-ajo-black flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl space-y-8 animate-in zoom-in"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Security Portal</h2></div><form id="adminLoginForm" class="space-y-6"><input type="password" id="adminPass" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm focus:bg-white focus:ring-2 focus:ring-ajo-brown/20 outline-none" placeholder="Access Key" required>${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest">Authorize Access</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black">Exit</button></div></div>`;
+            return `<div class="min-h-screen bg-ajo-black flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl space-y-8 animate-in zoom-in"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Security Portal</h2></div><form id="adminLoginForm" class="space-y-6"><input type="password" id="adminPass" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-ajo-brown/20" placeholder="Access Key" required>${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Authorize Access</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black tracking-widest">Exit</button></div></div>`;
         }
 
         function renderClientLogin() {
-            return `<div class="min-h-screen bg-ajo-cream flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in border border-ajo-brown/5"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Member Access</h2></div><form id="clientLoginForm" class="space-y-6"><input type="text" id="clientId" placeholder="FAJ-XXXX-XXXX" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm uppercase font-mono focus:bg-white focus:ring-2 focus:ring-ajo-brown/20 outline-none">${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest">Initialize Dashboard</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black">Return Home</button></div></div>`;
+            return `<div class="min-h-screen bg-ajo-cream flex items-center justify-center p-6"><div class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in border border-ajo-brown/5"><div class="text-center"><h2 class="text-2xl font-black text-ajo-brown-dark tracking-tight uppercase">Member Access</h2></div><form id="clientLoginForm" class="space-y-6"><input type="text" id="clientId" placeholder="FAJ-XXXX-XXXX" class="w-full bg-ajo-cream border-transparent rounded-2xl px-5 py-4 text-sm uppercase font-mono focus:bg-white focus:ring-2 focus:ring-ajo-brown/20 outline-none">${state.error ? `<p class="text-red-500 text-[10px] font-bold">${state.error}</p>` : ''}<button type="submit" class="w-full py-5 bg-ajo-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Initialize Dashboard</button></form><button onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] uppercase font-black tracking-widest">Return Home</button></div></div>`;
         }
 
         function renderDashboardLayout(type) {
@@ -398,12 +429,7 @@
             const activeView = is_admin ? state.adminActiveView : state.clientActiveView;
             const currentObj = is_admin ? { firstName: 'System', lastName: 'Admin' } : state.currentClient;
 
-            return `<div class="flex h-screen overflow-hidden bg-white"><aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'} ${!state.isSidebarOpen && !state.mobileSidebarOpen ? 'lg:w-20' : 'lg:w-64'}"><div class="p-6 flex items-center gap-3 border-b border-zinc-900"><div class="w-8 h-8 bg-ajo-brown rounded-lg flex items-center justify-center font-bold shrink-0 shadow-lg">F</div><span class="font-black text-xs uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all ${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'w-0 opacity-0' : 'w-auto opacity-100'}">Femi Ajo</span><button onclick="window.toggleMobileSidebar()" class="lg:hidden absolute right-4"><i data-lucide="x" size="20"></i></button></div><nav class="flex-1 mt-6 px-3 space-y-2">${is_admin ? `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateAdmin', 'dashboard')}${renderNavItem('users', 'Members', activeView === 'clients', 'navigateAdmin', 'clients')}${renderNavItem('plus-circle', 'Register', activeView === 'create', 'navigateAdmin', 'create')}${renderNavItem('book-open', 'Full Ledger', activeView === 'history', 'navigateAdmin', 'history')}` : `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateClient', 'dashboard')}${renderNavItem('user-circle', 'My Profile', activeView === 'my-profile', 'navigateClient', 'my-profile')}${renderNavItem('file-text', 'Subscr.', activeView === 'my-plans', 'navigateClient', 'my-plans')}${renderNavItem('history', 'History', activeView === 'my-history', 'navigateClient', 'my-history')}`}</nav><div class="p-4 border-t border-zinc-900"><button onclick="window.handleLogout()" class="w-full py-3 px-3 bg-zinc-800 text-zinc-400 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-900/10 transition-all shadow-sm"><i data-lucide="log-out" size="14"></i><span class="${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'hidden' : 'inline'}">Exit Session</span></button></div></aside><main class="flex-1 overflow-y-auto w-full relative">${state.mobileSidebarOpen ? `<div onclick="window.toggleMobileSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"></div>` : ''}<header class="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-4 sm:px-10 py-3 flex justify-between items-center z-10"><div class="flex items-center gap-4"><button onclick="window.toggleMobileSidebar()" class="lg:hidden p-2 bg-ajo-cream rounded-xl text-ajo-brown shadow-inner"><i data-lucide="menu" size="20"></i></button><div><h1 class="text-xs font-black uppercase text-zinc-400 mb-0.5">${is_admin ? 'Administration' : 'Profile: ' + currentObj.displayId}</h1><p class="text-sm font-bold text-ajo-black tracking-tight tracking-tight">${currentObj.firstName} ${currentObj.lastName}</p></div></div><div class="w-10 h-10 rounded-xl bg-ajo-brown-dark flex items-center justify-center text-white font-bold text-xs shadow-lg ring-4 ring-ajo-cream tracking-tight">${currentObj.firstName[0]}${currentObj.lastName[0] || ''}</div></header><div class="p-4 sm:p-10">${renderDashboardView(is_admin, activeView)}</div></main></div>`;
-        }
-
-        function renderNavItem(icon, label, active, func, arg) {
-            const isActive = active ? 'bg-ajo-brown text-white shadow-xl' : 'text-zinc-500 hover:bg-zinc-900 hover:text-white';
-            return `<button onclick="window.${func}('${arg}')" class="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${isActive}"><i data-lucide="${icon}" size="18" class="shrink-0"></i><span class="font-bold text-[11px] uppercase tracking-widest ${state.isSidebarOpen || state.mobileSidebarOpen ? 'block' : 'hidden'}">${label}</span></button>`;
+            return `<div class="flex h-screen overflow-hidden bg-white"><aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'} ${!state.isSidebarOpen && !state.mobileSidebarOpen ? 'lg:w-20' : 'lg:w-64'}"><div class="p-6 flex items-center gap-3 border-b border-zinc-900"><div class="w-8 h-8 bg-ajo-brown rounded-lg flex items-center justify-center font-bold shrink-0 shadow-lg">F</div><span class="font-black text-xs uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all ${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'w-0 opacity-0' : 'w-auto opacity-100'}">Femi Ajo</span><button onclick="window.toggleMobileSidebar()" class="lg:hidden absolute right-4"><i data-lucide="x" size="20"></i></button></div><nav class="flex-1 mt-6 px-3 space-y-2">${is_admin ? `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateAdmin', 'dashboard')}${renderNavItem('users', 'Members', activeView === 'clients', 'navigateAdmin', 'clients')}${renderNavItem('plus-circle', 'Register', activeView === 'create', 'navigateAdmin', 'create')}${renderNavItem('book-open', 'Master Ledger', activeView === 'history', 'navigateAdmin', 'history')}` : `${renderNavItem('layout-dashboard', 'Summary', activeView === 'dashboard', 'navigateClient', 'dashboard')}${renderNavItem('user-circle', 'My Profile', activeView === 'my-profile', 'navigateClient', 'my-profile')}${renderNavItem('file-text', 'Subscr.', activeView === 'my-plans', 'navigateClient', 'my-plans')}${renderNavItem('history', 'History', activeView === 'my-history', 'navigateClient', 'my-history')}`}</nav><div class="p-4 border-t border-zinc-900"><button onclick="window.handleLogout()" class="w-full py-3 px-3 bg-zinc-800 text-zinc-400 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-red-900/10 transition-all shadow-sm"><i data-lucide="log-out" size="14"></i><span class="${(!state.isSidebarOpen && !state.mobileSidebarOpen) ? 'hidden' : 'inline'}">Exit Session</span></button></div></aside><main class="flex-1 overflow-y-auto w-full relative">${state.mobileSidebarOpen ? `<div onclick="window.toggleMobileSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"></div>` : ''}<header class="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-zinc-100 px-4 sm:px-10 py-3 flex justify-between items-center z-10"><div class="flex items-center gap-4"><button onclick="window.toggleMobileSidebar()" class="lg:hidden p-2 bg-ajo-cream rounded-xl text-ajo-brown shadow-inner"><i data-lucide="menu" size="20"></i></button><div><h1 class="text-xs font-black uppercase text-zinc-400 mb-0.5">${is_admin ? 'Administration' : 'Profile: ' + currentObj.displayId}</h1><p class="text-sm font-bold text-ajo-black tracking-tight">${currentObj.firstName} ${currentObj.lastName}</p></div></div><div class="w-10 h-10 rounded-xl bg-ajo-brown-dark flex items-center justify-center text-white font-bold text-xs shadow-lg ring-4 ring-ajo-cream">${currentObj.firstName[0]}${currentObj.lastName[0] || ''}</div></header><div class="p-4 sm:p-10">${renderDashboardView(is_admin, activeView)}</div></main></div>`;
         }
 
         function renderDashboardView(is_admin, view) {
@@ -431,15 +457,12 @@
         function renderAdminDashboard() {
             const tIn = state.transactions.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
             const tOut = state.transactions.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-            return `<div class="space-y-8 animate-in fade-in"><div class="grid grid-cols-1 sm:grid-cols-3 gap-6">${renderStat('Verified Portfolios', state.clients.length, 'users', 'Members')}${renderStat('Total Inflow', '₦' + tIn.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}${renderStat('Payout Cycle', '₦' + tOut.toLocaleString(), 'arrow-up-right', 'Disbursements', 'text-ajo-brown')}</div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-6 border-b flex justify-between items-center bg-zinc-50"><h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Activity</h2><button onclick="window.navigateAdmin('clients')" class="text-[10px] text-ajo-brown font-black uppercase">Directory</button></div><div class="ledger-scroll"><table class="w-full text-left text-xs"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Full Name</th><th class="px-8 py-5 text-right">Action</th></tr></thead><tbody class="divide-y divide-zinc-50">${state.clients.slice(-5).reverse().map(c => `<tr class="hover:bg-ajo-cream/20 transition-colors"><td class="px-8 py-5 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-8 py-5 font-bold tracking-tight text-ajo-black">${c.firstName} ${c.lastName}</td><td class="px-8 py-5 text-right"><button onclick="recordTransactionFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase px-4 py-2 rounded-lg hover:bg-ajo-brown hover:text-white transition-all">Record</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
+            return `<div class="space-y-8 animate-in fade-in"><div class="grid grid-cols-1 sm:grid-cols-3 gap-6">${renderStat('Verified Portfolios', state.clients.length, 'users', 'Members')}${renderStat('Total Inflow', '₦' + tIn.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}${renderStat('Payout Cycle', '₦' + tOut.toLocaleString(), 'arrow-up-right', 'Payouts', 'text-ajo-brown')}</div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-6 border-b flex justify-between items-center bg-zinc-50"><h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Members</h2><button onclick="window.navigateAdmin('clients')" class="text-[10px] text-ajo-brown font-black uppercase hover:underline">Full Directory</button></div><div class="ledger-scroll"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Full Name</th><th class="px-8 py-5 text-right">Action</th></tr></thead><tbody class="divide-y divide-zinc-50">${state.clients.slice(-5).reverse().map(c => `<tr class="hover:bg-ajo-cream/20 transition-colors"><td class="px-8 py-5 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-8 py-5 font-bold tracking-tight text-ajo-black uppercase">${c.firstName} ${c.lastName}</td><td class="px-8 py-5 text-right"><button onclick="recordTransactionFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase tracking-widest px-4 py-2 rounded-lg hover:bg-ajo-brown hover:text-white transition-all shadow-sm font-bold">Record</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
         }
 
         function renderStat(l, v, i, s, c = '') {
             return `<div class="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm flex items-start gap-5 hover:shadow-xl transition-all"><div class="w-12 h-12 bg-ajo-cream rounded-2xl flex items-center justify-center text-ajo-brown shrink-0 shadow-inner"><i data-lucide="${i}" size="20"></i></div><div><p class="text-zinc-400 font-black uppercase text-[8px] mb-2 tracking-[0.2em]">${l}</p><h4 class="text-xl sm:text-2xl font-black ${c} tracking-tight">${v}</h4><p class="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-widest">${s}</p></div></div>`;
         }
-
-        window.recordTransactionFor = function(id) { state.selectedClientForTrans = state.clients.find(c => c.id === id); window.navigateAdmin('transaction'); }
-        window.editClient = function(id) { state.editingClient = state.clients.find(c => c.id === id); window.navigateAdmin('edit'); }
 
         function renderAdminClients() {
             return `<div class="space-y-10 animate-in fade-in"><div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"><div><h2 class="text-2xl font-black tracking-tighter uppercase text-ajo-black">Member Directory</h2><p class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Management Console</p></div><input type="text" id="clientSearch" value="${state.clientsSearch}" placeholder="SEARCH RECORDS..." class="w-full sm:w-80 bg-ajo-cream rounded-3xl pl-6 pr-6 py-4 text-[10px] font-black outline-none transition-all uppercase tracking-widest focus:bg-white focus:ring-2 focus:ring-ajo-brown/10 shadow-inner"></div>${renderAdminClientCategory('daily')}${renderAdminClientCategory('weekly')}${renderAdminClientCategory('monthly')}</div>`;
@@ -451,7 +474,7 @@
                 const match = !state.clientsSearch || (c.firstName + ' ' + (c.lastName || '')).toLowerCase().includes(state.clientsSearch.toLowerCase()) || (c.displayId || '').toLowerCase().includes(state.clientsSearch.toLowerCase());
                 return hasPlan && match;
             });
-            return `<div class="space-y-4"><div class="flex items-center gap-3"><div class="w-1.5 h-6 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${catId} RECORDS (${filtered.length})</h3></div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.2em]"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Name</th><th class="px-8 py-5 text-center text-green-700 font-black">In</th><th class="px-8 py-5 text-center text-ajo-brown font-black">Out</th><th class="px-8 py-5 text-right">Actions</th></tr></thead><tbody class="divide-y divide-zinc-50">${filtered.map(c => {
+            return `<div class="space-y-4"><div class="flex items-center gap-3"><div class="w-1.5 h-6 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${catId} RECORDS (${filtered.length})</h3></div><div class="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.2em]"><tr><th class="px-8 py-5">Access ID</th><th class="px-8 py-5">Member Name</th><th class="px-8 py-5 text-center text-green-700 font-black">In</th><th class="px-8 py-5 text-center text-ajo-brown font-black">Out</th><th class="px-8 py-5 text-right">Actions</th></tr></thead><tbody class="divide-y divide-zinc-50">${filtered.map(c => {
                 const cTrans = state.transactions.filter(t => t.clientId === c.id && (THRIFT_PLANS[catId] || []).some(p => p.id === t.planId));
                 const tIn = cTrans.filter(t => t.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
                 const tOut = cTrans.filter(t => t.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
@@ -461,18 +484,18 @@
 
         function renderAdminForm(isEdit = false) {
             const data = isEdit ? state.editingClient : { firstName: '', lastName: '', email: '', phone: '', address: '', plans: [], segments: [] };
-            return `<div class="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-6"><form id="${isEdit ? 'editPortfolioForm' : 'createPortfolioForm'}" class="bg-white p-8 sm:p-12 rounded-[3rem] border border-zinc-100 shadow-2xl space-y-10"><div class="text-center uppercase"><h2 class="text-2xl font-black tracking-tighter">${isEdit ? 'Modify Account' : 'Manual Portfolio Registration'}</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-8"><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">First Name</label><input type="text" id="cFirst" value="${data.firstName}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Last Name</label><input type="text" id="cLast" value="${data.lastName || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contact Phone</label><input type="text" id="cPhone" value="${data.phone || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Email Address</label><input type="email" id="cEmail" value="${data.email || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all" required></div></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Full Address</label><input type="text" id="cAddr" value="${data.address || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all" required></div><div class="space-y-8"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4">Classification</p><div class="flex flex-wrap gap-3">${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-5 py-3 border border-zinc-100 rounded-2xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="cSegments" value="${s}" class="w-4 h-4 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}><span class="text-[10px] font-black tracking-widest uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-10"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4 text-left">Subscription Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-4"><h4 class="text-[8px] font-black uppercase text-zinc-400 ml-2">${cat}</h4><div class="grid grid-cols-1 gap-2">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-4 border border-zinc-100 rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50 transition-all"><input type="checkbox" name="cPlans" value="${p.id}" class="w-5 h-5 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}><span class="text-[11px] font-bold text-ajo-black tracking-tight">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all premium-shadow">${isEdit ? 'Save Changes' : 'Authorize Membership'}</button></form></div>`;
+            return `<div class="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-6"><form id="${isEdit ? 'editPortfolioForm' : 'createPortfolioForm'}" class="bg-white p-8 sm:p-12 rounded-[3rem] border border-zinc-100 shadow-2xl space-y-10"><div class="text-center uppercase"><h2 class="text-2xl font-black tracking-tighter">${isEdit ? 'Modify Account' : 'Manual Registration'}</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-8"><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">First Name</label><input type="text" id="cFirst" value="${data.firstName}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Last Name</label><input type="text" id="cLast" value="${data.lastName || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Contact Phone</label><input type="text" id="cPhone" value="${data.phone || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Email Address</label><input type="email" id="cEmail" value="${data.email || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div></div><div class="space-y-2"><label class="text-[9px] font-black text-zinc-500 uppercase ml-2 tracking-widest">Full Address</label><input type="text" id="cAddr" value="${data.address || ''}" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm focus:bg-white outline-none transition-all shadow-inner" required></div><div class="space-y-8"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4">Classification</p><div class="flex flex-wrap gap-3">${SEGMENTS.map(s => `<label class="flex items-center gap-3 px-5 py-3 border border-zinc-100 rounded-2xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="cSegments" value="${s}" class="w-4 h-4 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}><span class="text-[10px] font-black tracking-widest uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-10"><p class="text-[10px] font-black uppercase tracking-widest text-ajo-brown border-b pb-4 text-left">Subscription Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-4"><h4 class="text-[8px] font-black uppercase text-zinc-400 ml-2">${cat} Options</h4><div class="grid grid-cols-1 gap-2">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-4 border border-zinc-100 rounded-2xl cursor-pointer has-[:checked]:bg-ajo-cream/50 transition-all"><input type="checkbox" name="cPlans" value="${p.id}" class="w-5 h-5 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}><span class="text-[11px] font-bold text-ajo-black tracking-tight">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-ajo-brown transition-all shadow-xl">${isEdit ? 'Update Portfolio' : 'Authorize Membership'}</button></form></div>`;
         }
 
         function renderTransactionEntry() {
             const c = state.selectedClientForTrans;
             const cPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].filter(p => (c.plans || []).includes(p.id));
-            return `<div class="max-w-xl mx-auto bg-white p-8 sm:p-12 rounded-[3rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in"><button onclick="window.navigateAdmin('clients')" class="absolute top-8 right-8 text-zinc-300 hover:text-ajo-black"><i data-lucide="x" size="24"></i></button><h2 class="text-2xl font-black mb-10 border-b pb-4 uppercase tracking-tighter">New Ledger Entry</h2><form id="transForm" class="space-y-8"><div class="flex bg-ajo-cream p-1.5 rounded-2xl shadow-inner"><button type="button" onclick="window.setTransType('in')" id="typeIn" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest bg-white text-green-700 shadow-md transition-all">Pay-In</button><button type="button" onclick="window.setTransType('out')" id="typeOut" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500 transition-all">Pay-Out</button></div><input type="number" id="tAmt" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm font-black outline-none border-transparent focus:bg-white focus:ring-2 focus:ring-ajo-brown/10" placeholder="Amount (₦)" required><select id="tPlan" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-[10px] font-black uppercase outline-none focus:bg-white" required><option value="">CHOOSE TARGET PLAN...</option>${cPlans.map(p => `<option value="${p.id}">${p.label.toUpperCase()}</option>`).join('')}</select><div class="border-2 border-dashed border-zinc-200 rounded-3xl p-10 bg-ajo-cream/30 text-center relative group hover:bg-white transition-all"><input type="file" id="tProof" class="absolute inset-0 opacity-0 cursor-pointer"><i data-lucide="file-text" class="mx-auto text-ajo-brown mb-3 group-hover:scale-110 transition-transform" size="32"></i><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Click to upload payment slip</p></div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase text-xs tracking-widest">Submit Transaction</button></form></div>`;
+            return `<div class="max-w-xl mx-auto bg-white p-8 sm:p-12 rounded-[3rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in"><button onclick="window.navigateAdmin('clients')" class="absolute top-8 right-8 text-zinc-300 hover:text-ajo-black transition-colors"><i data-lucide="x" size="24"></i></button><h2 class="text-2xl font-black mb-10 border-b pb-4 uppercase tracking-tighter">Secure Ledger Entry</h2><form id="transForm" class="space-y-8"><div class="flex bg-ajo-cream p-1.5 rounded-2xl shadow-inner"><button type="button" onclick="window.setTransType('in')" id="typeIn" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest bg-white text-green-700 shadow-md">Pay-In</button><button type="button" onclick="window.setTransType('out')" id="typeOut" class="flex-1 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500">Pay-Out</button></div><input type="number" id="tAmt" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-sm font-black outline-none border-transparent focus:bg-white focus:ring-2 focus:ring-ajo-brown/10" placeholder="Amount (₦)" required><select id="tPlan" class="w-full bg-ajo-cream rounded-2xl px-5 py-4 text-[10px] font-black uppercase outline-none focus:bg-white" required><option value="">Select Plan Context...</option>${cPlans.map(p => `<option value="${p.id}">${p.label.toUpperCase()}</option>`).join('')}</select><div class="border-2 border-dashed border-zinc-200 rounded-3xl p-10 bg-ajo-cream/30 text-center relative group hover:bg-white transition-all"><input type="file" id="tProof" class="absolute inset-0 opacity-0 cursor-pointer"><i data-lucide="file-text" class="mx-auto text-ajo-brown mb-3" size="32"></i><p class="text-[9px] font-black uppercase text-zinc-400">Click to upload slip</p></div><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl">Submit Transaction</button></form></div>`;
         }
 
         function renderLedger(transactions, isClient = false) {
             const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-            return `<div class="space-y-6 animate-in fade-in"><div class="flex items-center justify-between px-2"><h2 class="text-2xl font-black uppercase tracking-tighter text-ajo-black">Ledger Records</h2><span class="text-[9px] font-black uppercase text-zinc-400 tracking-[0.2em]">${sorted.length} ENTRIES</span></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Date / Time</th>${!isClient ? '<th class="px-8 py-5">Member</th>' : ''}<th class="px-8 py-5">Event</th><th class="px-8 py-5 text-right">Credit / Debit</th></tr></thead><tbody class="divide-y divide-zinc-50">${sorted.map(t => `<tr class="hover:bg-zinc-50 transition-colors"><td class="px-8 py-5 text-zinc-500 font-bold">${new Date(t.date).toLocaleDateString()}<br><span class="opacity-50 text-[8px] uppercase font-black">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></td>${!isClient ? `<td class="px-8 py-5 font-bold tracking-tight text-ajo-black uppercase">${t.clientName}</td>` : ''}<td class="px-8 py-5"><span class="px-3 py-1 rounded-lg font-black uppercase text-[8px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-800' : 'bg-ajo-brown/10 text-ajo-brown'}">${t.type === 'in' ? 'Deposit' : 'Withdrawal'}</span></td><td class="px-8 py-5 text-right font-black text-sm tracking-tight ${t.type === 'in' ? 'text-green-700' : 'text-ajo-black'}">₦${Number(t.amount).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+            return `<div class="space-y-6 animate-in fade-in"><div class="flex items-center justify-between px-2"><h2 class="text-2xl font-black uppercase tracking-tighter text-ajo-black">Ledger Records</h2><span class="text-[9px] font-black uppercase text-zinc-400 tracking-[0.2em]">${sorted.length} ENTRIES</span></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Date / Time</th>${!isClient ? '<th class="px-8 py-5">Member</th>' : ''}<th class="px-8 py-5">Event</th><th class="px-8 py-5 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${sorted.map(t => `<tr class="hover:bg-zinc-50 transition-colors"><td class="px-8 py-5 text-zinc-500 font-bold">${new Date(t.date).toLocaleDateString()}<br><span class="opacity-50 text-[8px] uppercase font-black">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></td>${!isClient ? `<td class="px-8 py-5 font-bold tracking-tight text-ajo-black uppercase">${t.clientName}</td>` : ''}<td class="px-8 py-5"><span class="px-3 py-1 rounded-lg font-black uppercase text-[8px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-800' : 'bg-ajo-brown/10 text-ajo-brown'}">${t.type === 'in' ? 'Deposit' : 'Withdrawal'}</span></td><td class="px-8 py-5 text-right font-black text-sm ${t.type === 'in' ? 'text-green-700' : 'text-ajo-black'}">₦${Number(t.amount).toLocaleString()}</td></tr>`).join('')}</tbody></table></div></div></div>`;
         }
 
         function renderClientDashboard() {
@@ -480,7 +503,7 @@
             const t = state.transactions.filter(x => x.clientId === c.id);
             const tIn = t.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
             const tOut = t.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-            return `<div class="space-y-10 animate-in fade-in"><div class="bg-ajo-black p-10 sm:p-14 rounded-[3.5rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-10 -right-10 w-64 h-64 bg-ajo-brown/10 rounded-full blur-[80px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-4 tracking-[0.3em]">Consolidated Balance</p><h3 class="text-5xl sm:text-7xl font-black mb-10 tracking-tighter">₦${(tIn - tOut).toLocaleString()}</h3><div class="flex flex-wrap gap-3"><div class="px-5 py-2 bg-white/10 rounded-2xl text-[10px] font-black uppercase border border-white/5 font-mono tracking-widest">${c.displayId}</div><div class="px-5 py-2 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Subscriptions</div></div></div>${renderClientPlans()}</div>`;
+            return `<div class="space-y-10 animate-in fade-in"><div class="bg-ajo-black p-10 sm:p-14 rounded-[3.5rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-10 -right-10 w-64 h-64 bg-ajo-brown/10 rounded-full blur-[80px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-4 tracking-[0.3em]">Consolidated Balance</p><h3 class="text-5xl sm:text-7xl font-black mb-10 tracking-tighter">₦${(tIn - tOut).toLocaleString()}</h3><div class="flex flex-wrap gap-3"><div class="px-5 py-2 bg-white/10 rounded-2xl text-[10px] font-black uppercase border border-white/5 font-mono tracking-widest">${c.displayId}</div><div class="px-5 py-2 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Plans</div></div></div>${renderClientPlans()}</div>`;
         }
 
         function renderClientProfile() {
@@ -488,7 +511,7 @@
             return `
                 <div class="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-6">
                     <div class="bg-white rounded-[3rem] border border-zinc-100 p-8 sm:p-12 shadow-xl premium-shadow">
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-zinc-50 pb-8 mb-8">
+                        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-zinc-50 pb-8 mb-8 text-left">
                             <div>
                                 <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase mb-2">Member Profile</h2>
                                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-ajo-brown italic">Secure Portfolio Data</p>
@@ -496,21 +519,21 @@
                             <div class="px-5 py-2 bg-ajo-cream text-ajo-brown-dark rounded-xl text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10 font-mono">ID: ${c.displayId}</div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-sm">
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Legal Name</p><p class="text-sm font-bold text-ajo-black">${c.firstName} ${c.lastName}</p></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-sm text-left">
+                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Legal Name</p><p class="text-sm font-bold text-ajo-black uppercase">${c.firstName} ${c.lastName}</p></div>
                             <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Email Address</p><p class="text-sm font-bold text-ajo-black">${c.email}</p></div>
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Contact Phone</p><p class="text-sm font-bold text-ajo-black">${c.phone}</p></div>
-                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Member Segment</p><p class="text-sm font-bold text-ajo-black uppercase">${c.segments?.join(', ') || 'Standard'}</p></div>
+                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Contact Phone</p><p class="text-sm font-bold text-ajo-black">${c.phone || 'N/A'}</p></div>
+                            <div><p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Member Segment</p><p class="text-sm font-bold text-ajo-black uppercase">${c.segments?.join(', ') || 'Individual'}</p></div>
                             <div class="md:col-span-2">
                                 <p class="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-1">Registered Address</p><p class="text-sm font-bold text-ajo-black leading-relaxed">${c.address}</p>
                             </div>
                         </div>
 
-                        <div class="mt-12 p-6 bg-ajo-cream/30 border border-ajo-brown/5 rounded-[2rem] flex items-center gap-4">
-                            <div class="w-10 h-10 bg-ajo-brown/10 rounded-xl flex items-center justify-center text-ajo-brown shrink-0"><i data-lucide="help-circle" size="20"></i></div>
+                        <div class="mt-12 p-6 bg-ajo-cream/30 border border-ajo-brown/5 rounded-[2rem] flex items-center gap-4 text-left">
+                            <div class="w-10 h-10 bg-ajo-brown/10 rounded-xl flex items-center justify-center text-ajo-brown shrink-0 shadow-sm"><i data-lucide="help-circle" size="20"></i></div>
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-ajo-black">Need to update your details?</p>
-                                <p class="text-[11px] text-zinc-500 mt-1">Please contact <a href="mailto:femiajoplace@gmail.com" class="text-ajo-brown font-bold underline hover:text-ajo-brown-dark transition-colors">femiajoplace@gmail.com</a> for support and account modifications.</p>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-ajo-black italic">Need assistance?</p>
+                                <p class="text-[11px] text-zinc-500 mt-1">Please contact <a href="mailto:femiajoplace@gmail.com" class="text-ajo-brown font-bold underline hover:text-ajo-brown-dark">femiajoplace@gmail.com</a> for profile updates.</p>
                             </div>
                         </div>
                     </div>
@@ -520,43 +543,41 @@
         function renderClientPlans() {
             const c = state.currentClient;
             const cats = [{id: 'daily', label: 'Daily'}, {id: 'weekly', label: 'Weekly'}, {id: 'monthly', label: 'Monthly'}];
-            return `<div class="space-y-14">${cats.map(cat => {
+            return `<div class="space-y-14 text-left">${cats.map(cat => {
                 const plans = THRIFT_PLANS[cat.id].filter(p => (c.plans || []).includes(p.id));
                 if (plans.length === 0) return '';
-                return `<div class="space-y-6"><div class="flex items-center gap-3 px-2"><div class="w-1.5 h-6 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${cat.label} STATUS</h3></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Plan Package</th><th class="px-8 py-5 text-center text-green-700">Deposited</th><th class="px-8 py-5 text-center">Progress</th><th class="px-8 py-5 text-right">Net Balance</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => {
+                return `<div class="space-y-6"><div class="flex items-center gap-3 px-2"><div class="w-1.5 h-6 bg-ajo-brown rounded-full shadow-sm"></div><h3 class="font-black uppercase text-[10px] tracking-[0.2em] text-ajo-black">${cat.label} STATUS</h3></div><div class="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="ledger-scroll min-w-full"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-8 py-5">Plan Context</th><th class="px-8 py-5 text-center text-green-700">Deposited</th><th class="px-8 py-5 text-center">Progress</th><th class="px-8 py-5 text-right">Net Saved</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => {
                     const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id);
                     const pI = pT.filter(t => t.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
                     const pO = pT.filter(t => t.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
                     const progress = Math.min(((pI - pO) / p.packValue) * 100, 100);
-                    return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-8 py-6 font-bold text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-8 py-6 text-center font-black text-green-700">₦${pI.toLocaleString()}</td><td class="px-8 py-6 text-center"><div class="flex items-center justify-center gap-2"><div class="w-12 bg-ajo-cream h-1 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000 shadow-lg" style="width: ${progress}%"></div></div><span class="text-[8px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-8 py-6 text-right font-black text-sm tracking-tighter">₦${(pI - pO).toLocaleString()}</td></tr>`;
+                    return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-8 py-6 font-bold text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-8 py-6 text-center font-black text-green-700">₦${pI.toLocaleString()}</td><td class="px-8 py-6 text-center"><div class="flex items-center justify-center gap-2"><div class="w-12 bg-ajo-cream h-1 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000 shadow-sm" style="width: ${progress}%"></div></div><span class="text-[8px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-8 py-6 text-right font-black text-sm tracking-tighter">₦${(pI - pO).toLocaleString()}</td></tr>`;
                 }).join('')}</tbody></table></div></div></div>`;
             }).join('')}</div>`;
         }
 
         // --- HANDLERS ---
-        window.setTransType = function(t) { currentTransType = t; render(); }
-        let currentTransType = 'in';
-
         function attachListeners() {
             const signupForm = document.getElementById('signupForm');
             if (signupForm) signupForm.onsubmit = async (e) => {
                 e.preventDefault();
                 const plans = Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value);
                 const segments = Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value);
-                if (!plans.length) return alert('Selection Error: Please choose a thrift plan context.');
+                if (!plans.length) return alert('Plan required.');
+                const emailValue = document.getElementById('sEmail').value;
                 const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
                 const clientData = {
                     firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value,
-                    email: document.getElementById('sEmail').value, phone: document.getElementById('sPhone').value,
+                    email: emailValue, phone: document.getElementById('sPhone').value,
                     address: document.getElementById('sAddr').value, segments, plans, displayId, createdAt: new Date().toISOString()
                 };
                 try {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
                     await triggerEmails('signup', clientData);
-                    state.lastGeneratedId = clientData.email;
+                    state.lastGeneratedId = emailValue;
                     state.showSignupSuccess = true;
                     render();
-                } catch (error) { alert("Error: " + error.message); }
+                } catch (error) { alert("Registration Error: " + error.message); }
             };
 
             const createForm = document.getElementById('createPortfolioForm');

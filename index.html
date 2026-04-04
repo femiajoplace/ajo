@@ -147,7 +147,9 @@
             measurementId: "G-QY8SW1KHQZ"
         };
 
+        // Restored to previous appId to recover your data path
         const appId = 'femi-ajo-v3-prod';
+        const PASSWORD_HINT = "8-32 characters, include Uppercase, Lowercase, Number, and Symbol.";
 
         // --- STATE ---
         let state = {
@@ -227,14 +229,10 @@
             render();
         };
 
-        // Serial ID Generator helper
         function generateNextMemberId() {
             const currentYear = new Date().getFullYear();
             const prefix = `FAJ-${currentYear}-`;
-            
-            // Filter existing clients belonging to current year
             const yearClients = state.clients.filter(c => c.displayId && c.displayId.startsWith(prefix));
-            
             let nextNum = 1;
             if (yearClients.length > 0) {
                 const serials = yearClients.map(c => {
@@ -244,9 +242,27 @@
                 });
                 nextNum = Math.max(...serials) + 1;
             }
-            
             const paddedSerial = nextNum.toString().padStart(4, '0');
             return `${prefix}${paddedSerial}`;
+        }
+
+        function validatePasswordPolicy(password) {
+            if (password.length < 8 || password.length > 32) {
+                throw new Error("Password must be between 8 and 32 characters.");
+            }
+            if (!/[A-Z]/.test(password)) {
+                throw new Error("Password must contain at least one uppercase letter.");
+            }
+            if (!/[a-z]/.test(password)) {
+                throw new Error("Password must contain at least one lowercase letter.");
+            }
+            if (!/\d/.test(password)) {
+                throw new Error("Password must contain at least one number.");
+            }
+            if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+                throw new Error("Password must contain at least one special character.");
+            }
+            return true;
         }
 
         // --- CORE LOGIC ---
@@ -472,7 +488,7 @@
                                 Intentional <br><span class="gradient-text">Milestones.</span>
                             </h1>
                             <p class="text-lg text-zinc-500 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-                                Femi Ajo Place is a structured and reliable thrift system that enables individuals to save consistently, build financial discipline, and achieve meaningful financial goals with confidence.
+                                Femi Ajo is a structured financial discipline and goal-execution system that helps people not only save money, but use it intentionally to improve their lives.
                             </p>
                             ${state.error ? `<p class="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold border border-red-100">${state.error}</p>` : ''}
                             <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -481,7 +497,7 @@
                             </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                            ${renderFeatureCard('layout', 'Organized Structure', 'A simple and organized savings system that enforces discipline.')}
+                            ${renderFeatureCard('layout', 'Organized Structure', 'A rigid and organized savings system that enforces discipline.')}
                             ${renderFeatureCard('lock', 'Transparent Trust', 'Transparent processes built on 3 years of consistent, reliable operation.')}
                             ${renderFeatureCard('target', 'Goal Oriented', 'Save towards specific business, rent, education, assets, or projects.')}
                             ${renderFeatureCard('zap', 'Proven Execution', 'Not a concept, but a system with real users and real-life outcomes.')}
@@ -517,7 +533,7 @@
                     </section>
 
                     <footer class="py-20 px-6 text-center border-t border-zinc-100 mt-20">
-                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2022 Femi Ajo Place</p>
+                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2024 Femi Ajo Place</p>
                     </footer>
                 </div>
             `;
@@ -567,7 +583,7 @@
                 <div class="min-h-screen bg-ajo-cream py-16 px-6">
                     <form id="signupForm" class="max-w-3xl mx-auto bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-ajo-brown/5 space-y-12 animate-in zoom-in duration-300">
                         <div class="text-center space-y-3">
-                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo Place</h2>
+                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo</h2>
                         </div>
                         <div class="grid sm:grid-cols-2 gap-8">
                             ${renderField('First Name', 'sFirst', 'text', true)}
@@ -576,8 +592,8 @@
                             ${renderField('Phone Number', 'sPhone', 'tel', true)}
                         </div>
                         <div class="grid sm:grid-cols-2 gap-8">
-                            ${renderField('Create Password', 'sPass', 'password', true)}
-                            ${renderField('Confirm Password', 'sPassConfirm', 'password', true)}
+                            ${renderPasswordField('Create Password', 'sPass')}
+                            ${renderPasswordField('Confirm Password', 'sPassConfirm')}
                         </div>
                         ${renderField('Residential Address', 'sAddr', 'text', true)}
                         <div class="space-y-6">
@@ -608,6 +624,16 @@
             `;
         }
 
+        function renderPasswordField(label, id, val = '') {
+            return `
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">${label}</label>
+                    <input type="password" id="${id}" value="${val}" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-4 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" required>
+                    <p class="text-[8px] text-zinc-400 uppercase font-black ml-4 leading-tight">${PASSWORD_HINT}</p>
+                </div>
+            `;
+        }
+
         function renderDashboard(type) {
             const isAdmin = type === 'admin';
             const activeView = isAdmin ? state.adminActiveView : state.clientActiveView;
@@ -627,6 +653,7 @@
                                 ${renderNavItem('users', 'Members', activeView === 'clients', 'navigateAdmin', 'clients')}
                                 ${renderNavItem('plus-circle', 'Register', activeView === 'create', 'navigateAdmin', 'create')}
                                 ${renderNavItem('book-open', 'Full Ledger', activeView === 'history', 'navigateAdmin', 'history')}
+                                ${renderNavItem('settings', 'Security', activeView === 'settings', 'navigateAdmin', 'settings')}
                             ` : `
                                 ${renderNavItem('layout-dashboard', 'Portfolio', activeView === 'dashboard', 'navigateClient', 'dashboard')}
                                 ${renderNavItem('user-circle', 'Identity', activeView === 'profile', 'navigateClient', 'profile')}
@@ -665,6 +692,7 @@
                     case 'history': return renderLedger(state.transactions);
                     case 'transaction': return renderTransactionPanel();
                     case 'edit': return renderAdminMemberForm(true);
+                    case 'settings': return renderAdminSettings();
                     default: return '';
                 }
             } else {
@@ -704,7 +732,7 @@
                             </button>
                             <div class="relative flex-1 md:w-80">
                                 <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-400" size="18"></i>
-                                <input type="text" id="clientSearchInput" value="${state.clientsSearch}" placeholder="SEARCH RECORDS..." class="w-full bg-white border border-zinc-100 rounded-full pl-16 pr-8 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-ajo-brown/5 shadow-sm">
+                                <input type="text" id="clientSearchInput" value="${state.clientsSearch}" placeholder="SEARCH BY NAME OR ID..." class="w-full bg-white border border-zinc-100 rounded-full pl-16 pr-8 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-ajo-brown/5 shadow-sm">
                             </div>
                         </div>
                     </div>
@@ -725,14 +753,62 @@
 
         function renderAdminMemberForm(isEdit = false) {
             const data = isEdit ? state.editingClient : { firstName: '', lastName: '', email: '', phone: '', address: '', plans: [], segments: [], password: '' };
-            return `<div class="max-w-4xl mx-auto"><form id="${isEdit ? 'editMemberForm' : 'createMemberForm'}" class="bg-white p-12 lg:p-20 rounded-[4rem] border border-zinc-100 shadow-2xl space-y-16 animate-in slide-in-from-bottom-10 duration-500"><div class="text-center space-y-4"><h2 class="text-3xl font-black tracking-tighter text-ajo-black uppercase">${isEdit ? 'Update Member Profile' : 'Direct Member Enrollment'}</h2></div><div class="grid md:grid-cols-2 gap-8">${renderField('First Name', 'cFirst', 'text', true, data.firstName)}${renderField('Last Name', 'cLast', 'text', true, data.lastName)}${renderField('Member Phone', 'cPhone', 'text', true, data.phone)}${renderField('Email Address', 'cEmail', 'email', true, data.email)}</div><div class="grid md:grid-cols-2 gap-8">${renderField(isEdit ? 'Update Member Password' : 'Initial Password', 'cPass', 'text', true, data.password)}</div>${renderField('Primary Address', 'cAddr', 'text', true, data.address)}<div class="space-y-8"><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Member Classification</p><div class="flex flex-wrap gap-4">${SEGMENTS.map(s => `<label class="flex items-center gap-4 px-8 py-5 border border-zinc-100 rounded-3xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="cSegments" value="${s}" class="w-5 h-5 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}><span class="text-[10px] font-black tracking-widest uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-12"><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Assigned Savings Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-6"><h4 class="text-[9px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">${cat} Series</h4><div class="grid gap-3">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-6 p-6 border border-zinc-50 rounded-3xl cursor-pointer hover:bg-zinc-50 transition-all has-[:checked]:bg-ajo-cream/30"><input type="checkbox" name="cPlans" value="${p.id}" class="w-6 h-6 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}><span class="text-sm font-bold text-ajo-black tracking-tight">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><div class="pt-10 flex flex-col gap-4"><button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-ajo-brown transition-all">${isEdit ? 'Update Master Portfolio' : 'Authorize New Membership'}</button>${isEdit ? `<button type="button" onclick="window.navigateAdmin('clients')" class="w-full text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-ajo-black">Cancel Changes</button>` : ''}</div></form></div>`;
+            return `<div class="max-w-4xl mx-auto"><form id="${isEdit ? 'editMemberForm' : 'createMemberForm'}" class="bg-white p-12 lg:p-20 rounded-[4rem] border border-zinc-100 shadow-2xl space-y-16 animate-in slide-in-from-bottom-10 duration-500"><div class="text-center space-y-4"><h2 class="text-3xl font-black tracking-tighter text-ajo-black uppercase">${isEdit ? 'Update Member Profile' : 'Direct Member Enrollment'}</h2><p class="text-[9px] text-zinc-400 uppercase font-black tracking-widest mt-2">Password requirements apply</p></div><div class="grid md:grid-cols-2 gap-8">${renderField('First Name', 'cFirst', 'text', true, data.firstName)}${renderField('Last Name', 'cLast', 'text', true, data.lastName)}${renderField('Member Phone', 'cPhone', 'text', true, data.phone)}${renderField('Email Address', 'cEmail', 'email', true, data.email)}</div><div class="grid md:grid-cols-2 gap-8">${renderPasswordField(isEdit ? 'Update Member Password' : 'Initial Password', 'cPass', data.password)}</div>${renderField('Primary Address', 'cAddr', 'text', true, data.address)}<div class="space-y-8"><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Member Classification</p><div class="flex flex-wrap gap-4">${SEGMENTS.map(s => `<label class="flex items-center gap-4 px-8 py-5 border border-zinc-100 rounded-3xl cursor-pointer hover:bg-ajo-cream transition-all has-[:checked]:bg-ajo-black has-[:checked]:text-white"><input type="checkbox" name="cSegments" value="${s}" class="w-5 h-5 accent-ajo-brown" ${(data.segments || []).includes(s) ? 'checked' : ''}><span class="text-[10px] font-black tracking-widest uppercase">${s}</span></label>`).join('')}</div></div><div class="space-y-12"><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown border-b pb-6">Assigned Savings Plans</p>${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-6"><h4 class="text-[9px] font-black uppercase text-zinc-400 ml-4 tracking-[0.2em]">${cat} Series</h4><div class="grid gap-3">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-6 p-6 border border-zinc-50 rounded-3xl cursor-pointer hover:bg-zinc-50 transition-all has-[:checked]:bg-ajo-cream/30"><input type="checkbox" name="cPlans" value="${p.id}" class="w-6 h-6 accent-ajo-brown" ${(data.plans || []).includes(p.id) ? 'checked' : ''}><span class="text-sm font-bold text-ajo-black tracking-tight">${p.label}</span></label>`).join('')}</div></div>`).join('')}</div><div class="pt-10 flex flex-col gap-4"><button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-ajo-brown transition-all">${isEdit ? 'Update Master Portfolio' : 'Authorize New Membership'}</button>${isEdit ? `<button type="button" onclick="window.navigateAdmin('clients')" class="w-full text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-ajo-black">Cancel Changes</button>` : ''}</div></form></div>`;
+        }
+
+        function renderAdminSettings() {
+            return `
+                <div class="max-w-xl mx-auto space-y-12 animate-in fade-in duration-500">
+                    <form id="adminSettingsForm" class="bg-white rounded-[4rem] border border-zinc-100 p-12 lg:p-20 shadow-2xl space-y-12">
+                        <div class="text-center">
+                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase mb-2">Admin Security</h2>
+                            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown italic">Update Access Key</p>
+                        </div>
+                        <div class="space-y-10">
+                            ${renderPasswordField('Current Key', 'aCurrentPass')}
+                            ${renderPasswordField('New Security Key', 'aNewPass')}
+                        </div>
+                        <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Update Master Key</button>
+                    </form>
+                </div>
+            `;
         }
 
         function renderTransactionPanel() {
             const c = state.selectedClientForTrans;
             if (!c) return '';
             const cPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].filter(p => (c.plans || []).includes(p.id));
-            return `<div class="max-w-2xl mx-auto"><div class="bg-white p-12 lg:p-20 rounded-[4rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in duration-500"><button onclick="window.navigateAdmin('clients')" class="absolute top-12 right-12 text-zinc-300 hover:text-ajo-black transition-colors"><i data-lucide="x" size="24"></i></button><div class="text-center mb-16 space-y-4"><h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Ledger Transaction</h2><div class="inline-block px-5 py-2 bg-ajo-cream rounded-full text-ajo-brown font-mono font-bold text-[10px] tracking-widest">${c.displayId} | ${c.firstName} ${c.lastName}</div></div><form id="transactionEntryForm" class="space-y-10"><div class="flex bg-ajo-cream/50 p-2 rounded-3xl shadow-inner"><button type="button" onclick="window.setTransType('in')" class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'in' ? 'bg-white text-green-700 shadow-xl' : 'text-zinc-400'}"><i data-lucide="arrow-down-left" size="14" class="inline mr-2"></i> Pay-In</button><button type="button" onclick="window.setTransType('out')" class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'out' ? 'bg-white text-ajo-brown shadow-xl' : 'text-zinc-400'}"><i data-lucide="arrow-up-right" size="14" class="inline mr-2"></i> Pay-Out</button></div>${renderField('Transaction Amount (₦)', 'tAmt', 'number', true)}<div class="space-y-2"><label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">Target Plan</label><select id="tPlanSelect" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white transition-all shadow-inner" required><option value="">Select Plan...</option>${cPlans.map(p => `<option value="${p.id}">${p.label}</option>`).join('')}</select></div><div class="border-4 border-dashed border-zinc-100 rounded-[3rem] p-12 text-center group hover:border-ajo-brown/20 transition-all bg-zinc-50/50"><i data-lucide="file-text" class="mx-auto text-zinc-200 group-hover:text-ajo-brown mb-6 transition-colors" size="48"></i><p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.25em]">Upload Proof of Payment</p></div><button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-ajo-brown transition-all">Commit to Ledger</button></form></div></div>`;
+            return `
+                <div class="max-w-2xl mx-auto">
+                    <div class="bg-white p-12 lg:p-20 rounded-[4rem] shadow-2xl border border-zinc-100 relative animate-in zoom-in duration-500">
+                        <button onclick="window.navigateAdmin('clients')" class="absolute top-12 right-12 text-zinc-300 hover:text-ajo-black transition-colors"><i data-lucide="x" size="24"></i></button>
+                        <div class="text-center mb-16 space-y-4">
+                            <h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Ledger Transaction</h2>
+                            <div class="inline-block px-5 py-2 bg-ajo-cream rounded-full text-ajo-brown font-mono font-bold text-[10px] tracking-widest">${c.displayId} | ${c.firstName} ${c.lastName}</div>
+                        </div>
+                        <form id="transactionEntryForm" class="space-y-10">
+                            <div class="flex bg-ajo-cream/50 p-2 rounded-3xl shadow-inner">
+                                <button type="button" onclick="window.setTransType('in')" class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'in' ? 'bg-white text-green-700 shadow-xl' : 'text-zinc-400'}"><i data-lucide="arrow-down-left" size="14" class="inline mr-2"></i> Pay-In</button>
+                                <button type="button" onclick="window.setTransType('out')" class="flex-1 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${state.currentTransType === 'out' ? 'bg-white text-ajo-brown shadow-xl' : 'text-zinc-400'}"><i data-lucide="arrow-up-right" size="14" class="inline mr-2"></i> Pay-Out</button>
+                            </div>
+                            ${renderField('Transaction Amount (₦)', 'tAmt', 'number', true)}
+                            <div class="space-y-2">
+                                <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">Target Plan</label>
+                                <select id="tPlanSelect" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:bg-white transition-all shadow-inner" required>
+                                    <option value="">Select Plan...</option>
+                                    ${cPlans.map(p => `<option value="${p.id}">${p.label}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="border-4 border-dashed border-zinc-100 rounded-[3rem] p-12 text-center group hover:border-ajo-brown/20 transition-all bg-zinc-50/50 relative overflow-hidden">
+                                <input type="file" id="tProof" class="absolute inset-0 opacity-0 cursor-pointer z-10">
+                                <i data-lucide="file-text" class="mx-auto text-zinc-200 group-hover:text-ajo-brown mb-6 transition-colors" size="48"></i>
+                                <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.25em]">Upload Proof of Payment</p>
+                            </div>
+                            <button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-ajo-brown transition-all">Commit to Ledger</button>
+                        </form>
+                    </div>
+                </div>
+            `;
         }
 
         function renderMemberSummary() {
@@ -754,37 +830,19 @@
                             </div>
                             <div class="px-8 py-3 bg-ajo-black text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] font-mono">PORTFOLIO: ${c.displayId}</div>
                         </div>
-
                         <div class="grid md:grid-cols-2 gap-x-16 gap-y-10 text-sm">
                             ${renderReadOnlyItem('Legal Name', `${c.firstName} ${c.lastName}`)}
                             ${renderReadOnlyItem('Email Contact', c.email)}
-                            
                             <div class="space-y-2">
                                 <label class="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1">Mobile Line (Editable)</label>
                                 <input type="text" id="mPhone" value="${c.phone}" class="w-full bg-ajo-cream/30 rounded-xl px-5 py-4 font-bold border border-transparent focus:border-ajo-brown/30 transition-all outline-none">
                             </div>
-                            
-                            <div class="space-y-2">
-                                <label class="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1">Access Password (Editable)</label>
-                                <input type="password" id="mPass" value="${c.password}" class="w-full bg-ajo-cream/30 rounded-xl px-5 py-4 font-bold border border-transparent focus:border-ajo-brown/30 transition-all outline-none">
-                            </div>
-
+                            ${renderPasswordField('Access Password (Editable)', 'mPass', c.password)}
                             ${renderReadOnlyItem('Member Segment', c.segments?.join(', ') || 'General')}
-                            <div class="md:col-span-2">
-                                ${renderReadOnlyItem('Primary Address', c.address)}
-                            </div>
+                            <div class="md:col-span-2">${renderReadOnlyItem('Primary Address', c.address)}</div>
                         </div>
-
                         <div class="pt-6">
                             <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Save Profile Changes</button>
-                        </div>
-
-                        <div class="mt-8 p-10 bg-ajo-cream/30 border border-ajo-brown/10 rounded-[3rem] flex flex-col md:flex-row items-center gap-8">
-                            <div class="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-ajo-brown shrink-0 shadow-lg"><i data-lucide="lock" size="28"></i></div>
-                            <div class="text-center md:text-left">
-                                <p class="text-[11px] font-black uppercase tracking-widest text-ajo-black mb-1">Security Guardrails</p>
-                                <p class="text-xs text-zinc-500 leading-relaxed">Names and registration data are fixed. For legal corrections, coordinate with the admin at <a href="mailto:femiajoplace@gmail.com" class="text-ajo-brown font-bold underline">femiajoplace@gmail.com</a>.</p>
-                            </div>
                         </div>
                     </form>
                 </div>`;
@@ -804,7 +862,7 @@
         }
 
         function attachDomEvents() {
-            const forms = ['clientLoginForm', 'adminLoginForm', 'signupForm', 'createMemberForm', 'editMemberForm', 'transactionEntryForm', 'memberProfileUpdateForm'];
+            const forms = ['clientLoginForm', 'adminLoginForm', 'signupForm', 'createMemberForm', 'editMemberForm', 'transactionEntryForm', 'memberProfileUpdateForm', 'adminSettingsForm'];
             forms.forEach(formId => {
                 const el = document.getElementById(formId);
                 if (el) el.onsubmit = (e) => handleFormSubmit(e, formId);
@@ -832,10 +890,8 @@
                     if (pass === state.adminCreds) { 
                         const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
                         await setDoc(sessionRef, { type: 'admin', lastActive: new Date().toISOString() });
-                        state.view = 'admin-dash'; 
-                        showToast('Admin access authorized'); 
-                    } 
-                    else { state.error = 'Invalid security credentials'; }
+                        state.view = 'admin-dash'; showToast('Admin access authorized'); 
+                    } else { state.error = 'Invalid security credentials'; }
                 }
 
                 if (formId === 'clientLoginForm') {
@@ -845,28 +901,20 @@
                     if (found) { 
                         const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
                         await setDoc(sessionRef, { type: 'client', clientId: found.id, lastActive: new Date().toISOString() });
-                        state.currentClient = found; state.view = 'client-dash'; 
-                        showToast('Welcome back, ' + found.firstName); 
-                    } 
-                    else { state.error = 'Invalid ID or password'; }
+                        state.currentClient = found; state.view = 'client-dash'; showToast('Welcome back, ' + found.firstName); 
+                    } else { state.error = 'Invalid ID or password'; }
                 }
 
                 if (formId === 'signupForm') {
                     const emailValue = document.getElementById('sEmail').value.trim().toLowerCase();
-                    const exists = state.clients.some(c => c.email.toLowerCase() === emailValue);
-                    if (exists) throw new Error("Email already exists, please login instead");
-
+                    if (state.clients.some(c => c.email.toLowerCase() === emailValue)) throw new Error("Email already exists.");
                     const pass = document.getElementById('sPass').value;
-                    const confirm = document.getElementById('sPassConfirm').value;
-                    if (pass !== confirm) throw new Error('Passwords do not match');
-                    
+                    if (pass !== document.getElementById('sPassConfirm').value) throw new Error('Passwords do not match');
+                    validatePasswordPolicy(pass);
                     const plans = Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value);
-                    const segments = Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value);
                     if (!plans.length) throw new Error('Selection of at least one plan is required');
-                    
                     const displayId = generateNextMemberId();
-                    const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments, plans, displayId, dateCreated: new Date().toISOString() };
-                    
+                    const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments: Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value), plans, displayId, dateCreated: new Date().toISOString() };
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
                     await triggerEmails('signup', clientData);
                     state.lastSignupId = clientData.email; state.showSignupSuccess = true;
@@ -874,58 +922,52 @@
 
                 if (formId === 'createMemberForm') {
                     const emailValue = document.getElementById('cEmail').value.trim().toLowerCase();
-                    const exists = state.clients.some(c => c.email.toLowerCase() === emailValue);
-                    if (exists) throw new Error("This email is already associated with an existing account.");
-
-                    const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
-                    const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
+                    if (state.clients.some(c => c.email.toLowerCase() === emailValue)) throw new Error("Email exists.");
                     const pass = document.getElementById('cPass').value;
+                    validatePasswordPolicy(pass);
                     const displayId = generateNextMemberId();
-                    const clientData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: emailValue, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments, plans, displayId, password: pass, dateCreated: new Date().toISOString() };
-                    
+                    const clientData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: emailValue, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments: Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value), displayId, password: pass, dateCreated: new Date().toISOString() };
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
                     await triggerEmails('signup', clientData);
-                    showToast('Member enrollment successful'); state.adminActiveView = 'clients';
+                    showToast('Member enrolled'); state.adminActiveView = 'clients';
                 }
 
                 if (formId === 'editMemberForm') {
-                    const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
-                    const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
                     const pass = document.getElementById('cPass').value;
-                    const oldPass = state.editingClient.password;
+                    validatePasswordPolicy(pass);
                     const clientRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.editingClient.id);
-                    
-                    const updatedData = { 
-                        firstName: document.getElementById('cFirst').value, 
-                        lastName: document.getElementById('cLast').value, 
-                        email: document.getElementById('cEmail').value, 
-                        phone: document.getElementById('cPhone').value, 
-                        address: document.getElementById('cAddr').value, 
-                        segments, plans, password: pass 
-                    };
-
+                    const updatedData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: document.getElementById('cEmail').value, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments: Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value), password: pass };
                     await updateDoc(clientRef, updatedData);
-                    if (pass !== oldPass) await triggerEmails('password_change', updatedData);
-                    showToast('Member profile updated'); state.editingClient = null; state.adminActiveView = 'clients';
+                    if (pass !== state.editingClient.password) await triggerEmails('password_change', updatedData);
+                    showToast('Profile updated'); state.editingClient = null; state.adminActiveView = 'clients';
                 }
 
                 if (formId === 'memberProfileUpdateForm') {
-                    const newPhone = document.getElementById('mPhone').value;
                     const newPass = document.getElementById('mPass').value;
-                    const oldPass = state.currentClient.password;
+                    validatePasswordPolicy(newPass);
                     const clientRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.currentClient.id);
-                    await updateDoc(clientRef, { phone: newPhone, password: newPass });
-                    if (newPass !== oldPass) await triggerEmails('password_change', state.currentClient);
-                    showToast('Credentials updated successfully');
+                    await updateDoc(clientRef, { phone: document.getElementById('mPhone').value, password: newPass });
+                    if (newPass !== state.currentClient.password) await triggerEmails('password_change', state.currentClient);
+                    showToast('Updated successfully');
+                }
+
+                if (formId === 'adminSettingsForm') {
+                    const currentPass = document.getElementById('aCurrentPass').value;
+                    const newPass = document.getElementById('aNewPass').value;
+                    if (currentPass !== state.adminCreds) throw new Error("Current security key is incorrect.");
+                    validatePasswordPolicy(newPass);
+                    const adminDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'admin_access');
+                    await updateDoc(adminDocRef, { password: newPass, updatedAt: new Date().toISOString() });
+                    showToast("Admin Security Key updated.");
+                    state.adminActiveView = 'dashboard';
                 }
 
                 if (formId === 'transactionEntryForm') {
-                    const amt = document.getElementById('tAmt').value;
-                    const planId = document.getElementById('tPlanSelect').value;
                     const client = state.selectedClientForTrans;
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), { clientId: client.id, clientName: `${client.firstName} ${client.lastName}`, amount: amt, planId: planId, type: state.currentTransType, date: new Date().toISOString() });
+                    const amt = document.getElementById('tAmt').value;
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), { clientId: client.id, clientName: `${client.firstName} ${client.lastName}`, amount: amt, planId: document.getElementById('tPlanSelect').value, type: state.currentTransType, date: new Date().toISOString() });
                     await triggerEmails('transaction', { client, amount: amt, type: state.currentTransType });
-                    showToast('Transaction logged to ledger'); state.adminActiveView = 'history';
+                    showToast('Logged to ledger'); state.adminActiveView = 'history';
                 }
                 render();
             } catch (err) { console.error(err); showToast(err.message, 'error'); } 

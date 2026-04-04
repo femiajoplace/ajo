@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Femi Ajo | Premium Thrift & Savings</title>
+    <title>Femi Ajo Place | Premium Thrift & Savings</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -85,7 +85,7 @@
                     <div class="absolute inset-0 border-4 border-ajo-brown rounded-full border-t-transparent animate-spin"></div>
                 </div>
                 <div>
-                    <h2 class="text-xs font-black uppercase tracking-[0.4em] text-ajo-brown">Femi Ajo</h2>
+                    <h2 class="text-xs font-black uppercase tracking-[0.4em] text-ajo-brown">Femi Ajo Place</h2>
                     <p class="text-zinc-500 font-bold tracking-widest text-[10px] uppercase mt-2">Connecting to Secure Ledger...</p>
                 </div>
             </div>
@@ -168,7 +168,8 @@
             error: '',
             mobileSidebarOpen: false,
             landingMenuOpen: false,
-            isProcessing: false
+            isProcessing: false,
+            isCheckingSession: true
         };
 
         let db, auth;
@@ -208,7 +209,12 @@
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
         window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; render(); };
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
-        window.handleLogout = () => {
+        
+        window.handleLogout = async () => {
+            if (state.user) {
+                const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
+                await deleteDoc(sessionRef);
+            }
             state.view = 'landing';
             state.currentClient = null;
             state.mobileSidebarOpen = false;
@@ -245,15 +251,18 @@
                     if (user) {
                         await bootstrapAdmin();
                         setupRealtimeListeners();
+                        await checkPersistentSession(user);
+                    } else {
+                        state.isCheckingSession = false;
+                        render();
                     }
-                    render();
                 });
 
                 emailjs.init(EMAILJS_PUBLIC_KEY);
             } catch (err) {
                 console.error("Critical Connection Error:", err);
                 state.view = 'landing';
-                state.error = "Ledger Connection Failed. Please check your network.";
+                state.error = "Ledger Connection Failed.";
                 render();
             }
         }
@@ -268,6 +277,28 @@
             } else {
                 state.adminCreds = snap.data().password;
             }
+        }
+
+        async function checkPersistentSession(user) {
+            const sessionRef = doc(db, 'artifacts', appId, 'users', user.uid, 'session', 'current');
+            const snap = await getDoc(sessionRef);
+            
+            if (snap.exists()) {
+                const sessionData = snap.data();
+                if (sessionData.type === 'admin') {
+                    state.view = 'admin-dash';
+                } else if (sessionData.type === 'client') {
+                    // We need to find the client. If clients list is empty, listeners will handle setting it
+                    // but for initial load, we might need a quick fetch
+                    const clientSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', sessionData.clientId));
+                    if (clientSnap.exists()) {
+                        state.currentClient = { id: clientSnap.id, ...clientSnap.data() };
+                        state.view = 'client-dash';
+                    }
+                }
+            }
+            state.isCheckingSession = false;
+            render();
         }
 
         function setupRealtimeListeners() {
@@ -308,7 +339,6 @@
                         to_email: data.client.email
                     });
                 } else if (type === 'password_change') {
-                    // Repurpose Transaction template for Security Alert
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
                         name: data.firstName,
                         transaction_type: "SECURITY ALERT: Password Updated",
@@ -321,40 +351,21 @@
             }
         }
 
-        // CSV Export Helper
         window.exportMemberData = () => {
             if (state.clients.length === 0) {
                 showToast("No records found to export", "error");
                 return;
             }
-
             const headers = ["Member ID", "First Name", "Last Name", "Email", "Phone", "Segments", "Full Address", "Total Deposits (In)", "Total Payouts (Out)", "Net Balance"];
-            
             const rows = state.clients.map(c => {
                 const cTrans = state.transactions.filter(t => t.clientId === c.id);
                 const tIn = cTrans.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0);
                 const tOut = cTrans.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0);
                 const segmentsStr = (c.segments || []).join('; ');
-                const addressStr = (c.address || "").replace(/,/g, " "); // Clean commas to avoid breaking CSV columns
-                
-                return [
-                    c.displayId,
-                    c.firstName,
-                    c.lastName,
-                    c.email,
-                    `'${c.phone}`, // Add apostrophe to force excel to treat as text
-                    segmentsStr,
-                    addressStr,
-                    tIn,
-                    tOut,
-                    tIn - tOut
-                ];
+                const addressStr = (c.address || "").replace(/,/g, " ");
+                return [c.displayId, c.firstName, c.lastName, c.email, `'${c.phone}`, segmentsStr, addressStr, tIn, tOut, tIn - tOut];
             });
-
-            const csvContent = "data:text/csv;charset=utf-8," 
-                + headers.join(",") + "\n" 
-                + rows.map(e => e.join(",")).join("\n");
-
+            const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
@@ -362,7 +373,6 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
             showToast("Spreadsheet generated successfully");
         };
 
@@ -370,8 +380,26 @@
         function render() {
             const root = document.getElementById('app');
             if (!root) return;
-            let content = '';
 
+            // Loading screen logic
+            if (state.isCheckingSession) {
+                root.innerHTML = `
+                    <div class="flex items-center justify-center h-screen bg-ajo-black text-white text-center">
+                        <div class="space-y-6">
+                            <div class="relative w-16 h-16 mx-auto">
+                                <div class="absolute inset-0 border-4 border-ajo-brown/20 rounded-full"></div>
+                                <div class="absolute inset-0 border-4 border-ajo-brown rounded-full border-t-transparent animate-spin"></div>
+                            </div>
+                            <div>
+                                <h2 class="text-xs font-black uppercase tracking-[0.4em] text-ajo-brown">Femi Ajo Place</h2>
+                                <p class="text-zinc-500 font-bold tracking-widest text-[10px] uppercase mt-2">Connecting to Secure Ledger...</p>
+                            </div>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            let content = '';
             switch (state.view) {
                 case 'landing': content = renderLanding(); break;
                 case 'signup': content = renderSignup(); break;
@@ -394,7 +422,7 @@
                     <nav class="px-6 md:px-12 py-5 flex justify-between items-center border-b border-zinc-100 sticky top-0 bg-white/80 backdrop-blur-xl z-50">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-ajo-black rounded-xl flex items-center justify-center font-black text-white shadow-lg">F</div>
-                            <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo</span>
+                            <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
                         </div>
                         <div class="hidden md:flex items-center gap-10">
                             <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Admin Access</button>
@@ -425,7 +453,7 @@
                                 Intentional <br><span class="gradient-text">Milestones.</span>
                             </h1>
                             <p class="text-lg text-zinc-500 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-                                Femi Ajo is a structured financial discipline and goal-execution system that helps people not only save money, but use it intentionally to improve their lives.
+                                Femi Ajo Place is a structured and reliable thrift system that enables individuals to save consistently, build financial discipline, and achieve meaningful financial goals with confidence.
                             </p>
                             ${state.error ? `<p class="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold border border-red-100">${state.error}</p>` : ''}
                             <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -434,7 +462,7 @@
                             </div>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                            ${renderFeatureCard('layout', 'Organized Structure', 'A rigid and organized savings system that enforces discipline.')}
+                            ${renderFeatureCard('layout', 'Organized Structure', 'A simple and organized savings system that enforces discipline.')}
                             ${renderFeatureCard('lock', 'Transparent Trust', 'Transparent processes built on 3 years of consistent, reliable operation.')}
                             ${renderFeatureCard('target', 'Goal Oriented', 'Save towards specific business, rent, education, assets, or projects.')}
                             ${renderFeatureCard('zap', 'Proven Execution', 'Not a concept, but a system with real users and real-life outcomes.')}
@@ -448,7 +476,7 @@
                                     <h3 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.5em]">What We Are</h3>
                                     <h2 class="text-4xl md:text-5xl font-black tracking-tight text-white uppercase">Purpose-Driven Savings</h2>
                                     <p class="text-zinc-400 text-lg leading-relaxed">
-                                        Femi Ajo is a structured thrift coordination system (Ajo) designed to help individuals and groups save in a disciplined, transparent, and organized manner. We operate a rotational contribution model with real users and results.
+                                        Femi Ajo Place is a structured thrift coordination system (Ajo) designed to help individuals and groups save in a disciplined, transparent, and organized manner. We operate a rotational contribution model with real users and results.
                                     </p>
                                     <div class="flex gap-12 border-t border-white/5 pt-10">
                                         <div><p class="text-ajo-brown font-black text-5xl tracking-tighter">50+</p><p class="text-[10px] uppercase font-black text-zinc-500 mt-2 tracking-widest">Active Clients</p></div>
@@ -470,7 +498,7 @@
                     </section>
 
                     <footer class="py-20 px-6 text-center border-t border-zinc-100 mt-20">
-                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2022 Femi Ajo</p>
+                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2022 Femi Ajo Place</p>
                     </footer>
                 </div>
             `;
@@ -520,7 +548,7 @@
                 <div class="min-h-screen bg-ajo-cream py-16 px-6">
                     <form id="signupForm" class="max-w-3xl mx-auto bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-ajo-brown/5 space-y-12 animate-in zoom-in duration-300">
                         <div class="text-center space-y-3">
-                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo</h2>
+                            <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo Place</h2>
                         </div>
                         <div class="grid sm:grid-cols-2 gap-8">
                             ${renderField('First Name', 'sFirst', 'text', true)}
@@ -571,7 +599,7 @@
                     <aside class="sidebar-transition fixed lg:relative z-50 bg-ajo-black text-white h-screen flex flex-col shadow-2xl ${state.mobileSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64'}">
                         <div class="p-8 flex items-center gap-4 border-b border-white/5 mb-6">
                             <div class="w-10 h-10 bg-ajo-brown rounded-xl flex items-center justify-center font-black shadow-lg">F</div>
-                            <span class="font-black text-sm uppercase tracking-tighter">Femi Ajo</span>
+                            <span class="font-black text-sm uppercase tracking-tighter">Femi Ajo Place</span>
                             <button onclick="window.toggleMobileSidebar()" class="lg:hidden ml-auto text-zinc-600"><i data-lucide="x"></i></button>
                         </div>
                         <nav class="flex-1 px-4 space-y-2">
@@ -782,7 +810,12 @@
             try {
                 if (formId === 'adminLoginForm') {
                     const pass = document.getElementById('authPass').value;
-                    if (pass === state.adminCreds) { state.view = 'admin-dash'; showToast('Admin access authorized'); } 
+                    if (pass === state.adminCreds) { 
+                        const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
+                        await setDoc(sessionRef, { type: 'admin', lastActive: new Date().toISOString() });
+                        state.view = 'admin-dash'; 
+                        showToast('Admin access authorized'); 
+                    } 
                     else { state.error = 'Invalid security credentials'; }
                 }
 
@@ -790,7 +823,12 @@
                     const id = document.getElementById('authId').value.trim().toUpperCase();
                     const pass = document.getElementById('authPass').value;
                     const found = state.clients.find(c => c.displayId === id && c.password === pass);
-                    if (found) { state.currentClient = found; state.view = 'client-dash'; showToast('Welcome back, ' + found.firstName); } 
+                    if (found) { 
+                        const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
+                        await setDoc(sessionRef, { type: 'client', clientId: found.id, lastActive: new Date().toISOString() });
+                        state.currentClient = found; state.view = 'client-dash'; 
+                        showToast('Welcome back, ' + found.firstName); 
+                    } 
                     else { state.error = 'Invalid ID or password'; }
                 }
 
@@ -827,7 +865,7 @@
                     const clientData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: emailValue, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments, plans, displayId, password: pass, dateCreated: new Date().toISOString() };
                     
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
-                    await triggerEmails('signup', clientData); // Welcome email for admin creation
+                    await triggerEmails('signup', clientData);
                     showToast('Member enrollment successful'); state.adminActiveView = 'clients';
                 }
 

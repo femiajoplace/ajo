@@ -227,6 +227,28 @@
             render();
         };
 
+        // Serial ID Generator helper
+        function generateNextMemberId() {
+            const currentYear = new Date().getFullYear();
+            const prefix = `FAJ-${currentYear}-`;
+            
+            // Filter existing clients belonging to current year
+            const yearClients = state.clients.filter(c => c.displayId && c.displayId.startsWith(prefix));
+            
+            let nextNum = 1;
+            if (yearClients.length > 0) {
+                const serials = yearClients.map(c => {
+                    const parts = c.displayId.split('-');
+                    const num = parseInt(parts[parts.length - 1], 10);
+                    return isNaN(num) ? 0 : num;
+                });
+                nextNum = Math.max(...serials) + 1;
+            }
+            
+            const paddedSerial = nextNum.toString().padStart(4, '0');
+            return `${prefix}${paddedSerial}`;
+        }
+
         // --- CORE LOGIC ---
         async function initApp() {
             try {
@@ -288,8 +310,6 @@
                 if (sessionData.type === 'admin') {
                     state.view = 'admin-dash';
                 } else if (sessionData.type === 'client') {
-                    // We need to find the client. If clients list is empty, listeners will handle setting it
-                    // but for initial load, we might need a quick fetch
                     const clientSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', sessionData.clientId));
                     if (clientSnap.exists()) {
                         state.currentClient = { id: clientSnap.id, ...clientSnap.data() };
@@ -381,7 +401,6 @@
             const root = document.getElementById('app');
             if (!root) return;
 
-            // Loading screen logic
             if (state.isCheckingSession) {
                 root.innerHTML = `
                     <div class="flex items-center justify-center h-screen bg-ajo-black text-white text-center">
@@ -845,7 +864,7 @@
                     const segments = Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value);
                     if (!plans.length) throw new Error('Selection of at least one plan is required');
                     
-                    const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    const displayId = generateNextMemberId();
                     const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments, plans, displayId, dateCreated: new Date().toISOString() };
                     
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
@@ -861,7 +880,7 @@
                     const plans = Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value);
                     const segments = Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value);
                     const pass = document.getElementById('cPass').value;
-                    const displayId = `FAJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    const displayId = generateNextMemberId();
                     const clientData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: emailValue, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments, plans, displayId, password: pass, dateCreated: new Date().toISOString() };
                     
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);

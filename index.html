@@ -603,7 +603,8 @@
                         </div>
                     </div>` : ''}
 
-                    <div class="max-w-7xl mx-auto px-6 lg:px-12 py-12 lg:py-24 grid lg:grid-cols-2 gap-16 items-center">
+                    <!-- Hero Section -->
+                    <div class="max-w-7xl mx-auto px-6 lg:px-12 py-12 lg:py-24 grid lg:grid-cols-2 gap-16 items-center border-b border-zinc-50">
                         <div class="space-y-8 text-center lg:text-left">
                             <div class="inline-flex items-center gap-2 px-5 py-2 bg-ajo-cream text-ajo-brown rounded-full text-[10px] font-black uppercase tracking-widest border border-ajo-brown/10">
                                 <i data-lucide="shield-check" size="14"></i> Tested & Working System
@@ -627,6 +628,45 @@
                             ${renderFeatureCard('zap', 'Proven Execution', 'Not a concept, but a system with real users and real-life outcomes.')}
                         </div>
                     </div>
+
+                    <!-- Mission & Vision Section -->
+                    <div class="bg-ajo-cream/30 py-24">
+                        <div class="max-w-7xl mx-auto px-6 lg:px-12 grid md:grid-cols-2 gap-10">
+                            <div class="bg-white p-12 rounded-[3.5rem] shadow-xl border border-ajo-brown/5 space-y-6">
+                                <div class="w-16 h-16 bg-ajo-black text-white rounded-3xl flex items-center justify-center shadow-lg">
+                                    <i data-lucide="flag" size="28"></i>
+                                </div>
+                                <h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Mission Statement</h2>
+                                <p class="text-zinc-500 font-medium leading-relaxed">
+                                    To provide a structured and reliable thrift system that enables individuals to save consistently, build financial discipline, and achieve meaningful financial goals with confidence.
+                                </p>
+                            </div>
+                            <div class="bg-white p-12 rounded-[3.5rem] shadow-xl border border-ajo-brown/5 space-y-6">
+                                <div class="w-16 h-16 bg-ajo-brown text-white rounded-3xl flex items-center justify-center shadow-lg">
+                                    <i data-lucide="eye" size="28"></i>
+                                </div>
+                                <h2 class="text-3xl font-black tracking-tighter uppercase text-ajo-black">Vision Statement</h2>
+                                <p class="text-zinc-500 font-medium leading-relaxed">
+                                    To become a trusted and widely recognized platform for structured savings, empowering individuals and communities to grow financially through discipline, transparency, and purposeful financial action.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Core Value Proposition Section -->
+                    <div class="py-24 max-w-7xl mx-auto px-6 lg:px-12 space-y-16">
+                        <div class="text-center space-y-4">
+                            <p class="text-[10px] font-black uppercase text-ajo-brown tracking-[0.5em]">Our DNA</p>
+                            <h2 class="text-4xl md:text-6xl font-black text-ajo-black tracking-tighter uppercase leading-none">Core Value Proposition</h2>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                            ${renderCoreValueItem('layers', 'Structure', 'Organized savings system')}
+                            ${renderCoreValueItem('shield-check', 'Trust', 'Transparent processes')}
+                            ${renderCoreValueItem('hourglass', 'Discipline', 'Enforced contribution cycles')}
+                            ${renderCoreValueItem('target', 'Purpose', 'Goal-oriented savings')}
+                            ${renderCoreValueItem('zap', 'Execution', 'Turning savings into outcomes')}
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -639,6 +679,18 @@
                     </div>
                     <h3 class="font-black text-ajo-black text-sm mb-3 uppercase tracking-tight">${title}</h3>
                     <p class="text-[11px] font-medium text-zinc-500 leading-relaxed">${desc}</p>
+                </div>
+            `;
+        }
+
+        function renderCoreValueItem(icon, title, subtitle) {
+            return `
+                <div class="text-center space-y-4 p-8 bg-white border border-zinc-100 rounded-[2.5rem] hover:-translate-y-2 transition-all duration-300 shadow-sm hover:shadow-xl group">
+                    <div class="w-14 h-14 bg-ajo-cream text-ajo-brown rounded-2xl flex items-center justify-center mx-auto mb-2 group-hover:bg-ajo-black group-hover:text-white transition-colors">
+                        <i data-lucide="${icon}" size="24"></i>
+                    </div>
+                    <h4 class="font-black text-ajo-black uppercase tracking-tight text-sm">${title}</h4>
+                    <p class="text-[10px] font-bold text-zinc-400 uppercase leading-tight">${subtitle}</p>
                 </div>
             `;
         }

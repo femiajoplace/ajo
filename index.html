@@ -16,6 +16,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         
@@ -229,7 +232,7 @@
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
         window.toggleMobileSidebar = () => { 
             state.mobileSidebarOpen = !state.mobileSidebarOpen; 
-            render(); // Added missing render to make mobile menu responsive
+            render();
         };
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.viewProof = (dataUrl) => { state.viewingProof = dataUrl; render(); };
@@ -277,6 +280,111 @@
             if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) throw new Error("Password needs a special character.");
             return true;
         }
+
+        // --- EXPORT LOGIC ---
+        window.exportLedgerCSV = () => {
+            const isClient = state.view === 'client-dash';
+            const transactions = isClient 
+                ? state.transactions.filter(t => t.clientId === state.currentClient.id)
+                : state.transactions;
+
+            if (transactions.length === 0) { showToast("No ledger records to export", "error"); return; }
+            const isAdmin = state.view === 'admin-dash';
+            const headers = ["Timestamp", isAdmin ? "Member" : null, "Type", "Plan", "Value (N)"].filter(Boolean);
+            
+            const rows = transactions.map(t => {
+                const date = new Date(t.date).toLocaleDateString() + ' ' + new Date(t.date).toLocaleTimeString();
+                const plan = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].find(p => p.id === t.planId)?.label || t.planId;
+                return [
+                    `"${date}"`,
+                    isAdmin ? `"${t.clientName}"` : null,
+                    `"${t.type === 'in' ? 'Deposit' : 'Withdrawal'}"`,
+                    `"${plan}"`,
+                    t.amount
+                ].filter(val => val !== null);
+            });
+
+            const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            const fileName = isAdmin ? `FemiAjo_MasterLedger_${new Date().toISOString().split('T')[0]}.csv` : `FemiAjo_MyLedger_${state.currentClient.displayId}.csv`;
+            link.setAttribute("download", fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("CSV Exported successfully");
+        };
+
+        window.exportLedgerPDF = () => {
+            const isClient = state.view === 'client-dash';
+            const transactions = isClient 
+                ? state.transactions.filter(t => t.clientId === state.currentClient.id)
+                : state.transactions;
+
+            if (transactions.length === 0) { showToast("No ledger records to export", "error"); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const isAdmin = state.view === 'admin-dash';
+            const title = isAdmin ? "FEMI AJO PLACE - MASTER LEDGER" : `FEMI AJO PLACE - PORTFOLIO LEDGER (${state.currentClient.displayId})`;
+            const userSub = isAdmin ? "System Administrator Report" : `Report for: ${state.currentClient.firstName} ${state.currentClient.lastName}`;
+
+            doc.setFontSize(18);
+            doc.setTextColor(15, 15, 15);
+            doc.text(title, 14, 22);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(userSub, 14, 30);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 35);
+
+            const tableHeaders = [["Date", isAdmin ? "Member" : "Plan", "Type", "Amount (N)"]];
+            const tableData = transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).map(t => {
+                const plan = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].find(p => p.id === t.planId)?.label || t.planId;
+                return [
+                    new Date(t.date).toLocaleDateString(),
+                    isAdmin ? t.clientName : plan,
+                    t.type === 'in' ? 'Deposit' : 'Withdrawal',
+                    Number(t.amount).toLocaleString()
+                ];
+            });
+
+            doc.autoTable({
+                startY: 45,
+                head: tableHeaders,
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [15, 15, 15], textColor: [255, 255, 255], fontSize: 10, fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 4 },
+                columnStyles: { 3: { halign: 'right' } }
+            });
+
+            const fileName = isAdmin ? `FemiAjo_MasterLedger_${Date.now()}.pdf` : `FemiAjo_MyLedger_${state.currentClient.displayId}.pdf`;
+            doc.save(fileName);
+            showToast("PDF Generated successfully");
+        };
+
+        window.exportMemberData = () => {
+            if (state.clients.length === 0) { showToast("No records found to export", "error"); return; }
+            const headers = ["Member ID", "First Name", "Last Name", "Email", "Phone", "Segments", "Full Address", "Total Deposits (In)", "Total Payouts (Out)", "Net Balance"];
+            const rows = state.clients.map(c => {
+                const cTrans = state.transactions.filter(t => t.clientId === c.id);
+                const tIn = cTrans.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0);
+                const tOut = cTrans.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0);
+                const segmentsStr = (c.segments || []).join('; ');
+                const addressStr = (c.address || "").replace(/,/g, " ");
+                return [c.displayId, c.firstName, c.lastName, c.email, `'${c.phone}`, segmentsStr, addressStr, tIn, tOut, tIn - tOut];
+            });
+            const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `FemiAjo_MembersFull_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Full member registry exported");
+        };
 
         // --- CORE LOGIC ---
         async function initApp() {
@@ -383,35 +491,13 @@
                 } else if (type === 'password_change') {
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
                         name: data.firstName,
-                        transaction_type: "SECURITY ALERT: Password Updated",
-                        amount: "Your password was recently changed. If you did not authorize this, please contact support immediately.",
+                        transaction_type: "SECURITY ALERT: Access Credentials Updated",
+                        amount: "Your portfolio access password was recently modified. If you did not authorize this change, please contact support immediately to secure your account.",
                         to_email: data.email
                     });
                 }
             } catch (e) { console.error("Email failed", e); }
         }
-
-        window.exportMemberData = () => {
-            if (state.clients.length === 0) { showToast("No records found to export", "error"); return; }
-            const headers = ["Member ID", "First Name", "Last Name", "Email", "Phone", "Segments", "Full Address", "Total Deposits (In)", "Total Payouts (Out)", "Net Balance"];
-            const rows = state.clients.map(c => {
-                const cTrans = state.transactions.filter(t => t.clientId === c.id);
-                const tIn = cTrans.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0);
-                const tOut = cTrans.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0);
-                const segmentsStr = (c.segments || []).join('; ');
-                const addressStr = (c.address || "").replace(/,/g, " ");
-                return [c.displayId, c.firstName, c.lastName, c.email, `'${c.phone}`, segmentsStr, addressStr, tIn, tOut, tIn - tOut];
-            });
-            const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `FemiAjo_FullLedger_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("Spreadsheet generated successfully");
-        };
 
         // --- RENDER ENGINE ---
         function render() {
@@ -738,7 +824,7 @@
                             <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-2">Database Management</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                            <button onclick="window.exportMemberData()" class="px-6 py-4 bg-white border border-zinc-200 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-ajo-black hover:text-white transition-all shadow-sm"><i data-lucide="download" size="14"></i> Export Ledger</button>
+                            <button onclick="window.exportMemberData()" class="px-6 py-4 bg-white border border-zinc-200 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-ajo-black hover:text-white transition-all shadow-sm"><i data-lucide="download" size="14"></i> Export All</button>
                             <div class="relative flex-1 md:w-80">
                                 <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-400" size="18"></i>
                                 <input type="text" id="clientSearchInput" value="${state.clientsSearch}" placeholder="SEARCH BY NAME OR ID..." class="w-full bg-white border border-zinc-100 rounded-full pl-16 pr-8 py-5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-ajo-brown/5 shadow-sm">
@@ -857,7 +943,7 @@
 
         function renderMemberProfile() {
             const c = state.currentClient;
-            return `<div class="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-10 duration-500"><form id="memberProfileUpdateForm" class="bg-white rounded-[4rem] border border-zinc-100 p-12 lg:p-20 shadow-2xl space-y-12"><div class="flex flex-col md:flex-row justify-between items-start gap-8 border-b border-zinc-50 pb-12"><div><h2 class="text-4xl font-black text-ajo-black tracking-tighter uppercase mb-2">Member Identity</h2><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown italic">Profile Management</p></div><div class="px-8 py-3 bg-ajo-black text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] font-mono">${c.displayId}</div></div><div class="grid md:grid-cols-2 gap-x-16 gap-y-10 text-sm">${renderReadOnlyItem('Legal Name', `${c.firstName} ${c.lastName}`)}${renderReadOnlyItem('Email', c.email)}<div class="space-y-2"><label class="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1">Phone</label><input type="text" id="mPhone" value="${c.phone}" class="w-full bg-ajo-cream/30 rounded-xl px-5 py-4 font-bold border border-transparent focus:border-ajo-brown/30 outline-none transition-all"></div>${renderPasswordField('Access Password', 'mPass', c.password)}${renderReadOnlyItem('Segment', c.segments?.join(', '))}<div class="md:col-span-2">${renderReadOnlyItem('Address', c.address)}</div></div><div class="pt-6"><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Save Profile Changes</button></div></form></div>`;
+            return `<div class="max-w-4xl mx-auto space-y-12 animate-in slide-in-from-bottom-10 duration-500"><form id="memberProfileUpdateForm" class="bg-white rounded-[4rem] border border-zinc-100 p-12 lg:p-20 shadow-2xl space-y-12"><div class="flex flex-col md:flex-row justify-between items-start gap-8 border-b border-zinc-50 pb-12"><div><h2 class="text-4xl font-black text-ajo-black tracking-tighter uppercase mb-2">Member Identity</h2><p class="text-[10px] font-black uppercase tracking-[0.4em] text-ajo-brown italic">Profile Management</p></div><div class="px-8 py-3 bg-ajo-black text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] font-mono">${c.displayId}</div></div><div class="grid md:grid-cols-2 gap-x-16 gap-y-10 text-sm">${renderReadOnlyItem('Legal Name', `${c.firstName} ${c.lastName}`)}${renderReadOnlyItem('Email', c.email)}<div class="space-y-2"><label class="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-1">Phone</label><input type="text" id="mPhone" value="${c.phone}" class="w-full bg-ajo-cream/30 rounded-xl px-5 py-4 font-bold border border-transparent focus:border-ajo-brown/30 outline-none transition-all"></div>${renderPasswordField('Access Password', 'mPass', c.password)}<div class="md:col-span-2">${renderReadOnlyItem('Address', c.address)}</div></div><div class="pt-6"><button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Save Profile Changes</button></div></form></div>`;
         }
 
         function renderReadOnlyItem(l, v) { return `<div><p class="text-[10px] font-black uppercase text-zinc-300 tracking-widest mb-2">${l}</p><p class="text-sm font-black text-ajo-black uppercase tracking-tight opacity-70">${v}</p></div>`; }
@@ -865,11 +951,22 @@
         function renderLedger(transactions, isClient = false) {
             const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
             const isAdmin = state.view === 'admin-dash';
+            
             return `
                 <div class="space-y-10 animate-in fade-in duration-500">
-                    <div class="flex items-center justify-between px-4">
-                        <h2 class="text-3xl font-black uppercase tracking-tighter text-ajo-black">Digital Ledger</h2>
-                        <span class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.4em]">${sorted.length} Entries</span>
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 px-4">
+                        <div>
+                            <h2 class="text-3xl font-black uppercase tracking-tighter text-ajo-black">Digital Ledger</h2>
+                            <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.4em] mt-1">${sorted.length} Total Entries</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="window.exportLedgerPDF()" class="px-5 py-3 bg-white border border-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-ajo-black hover:text-white transition-all shadow-sm">
+                                <i data-lucide="file-text" size="14"></i> PDF Export
+                            </button>
+                            <button onclick="window.exportLedgerCSV()" class="px-5 py-3 bg-white border border-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-ajo-black hover:text-white transition-all shadow-sm">
+                                <i data-lucide="table" size="14"></i> CSV Export
+                            </button>
+                        </div>
                     </div>
                     <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
                         <div class="overflow-x-auto">
@@ -877,7 +974,7 @@
                                 <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.3em]">
                                     <tr>
                                         <th class="px-10 py-6">Timestamp</th>
-                                        ${!isClient ? '<th class="px-10 py-6">Member</th>' : ''}
+                                        ${!isClient ? '<th class="px-10 py-6">Member</th>' : '<th class="px-10 py-6">Target Plan</th>'}
                                         <th class="px-10 py-6">Action</th>
                                         <th class="px-10 py-6 text-center">Slip</th>
                                         <th class="px-10 py-6 text-right">Value (₦)</th>
@@ -885,13 +982,17 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-50">
-                                    ${sorted.map(t => `
+                                    ${sorted.map(t => {
+                                        const planLabel = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].find(p => p.id === t.planId)?.label || 'Plan';
+                                        return `
                                         <tr class="hover:bg-zinc-50 transition-colors">
                                             <td class="px-10 py-8 text-zinc-400 font-bold">
-                                                <div class="text-ajo-black">${new Date(t.date).toLocaleDateString()}</div>
+                                                <div class="text-ajo-black font-mono">${new Date(t.date).toLocaleDateString()}</div>
                                                 <div class="text-[8px] uppercase mt-1">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                             </td>
-                                            ${!isClient ? `<td class="px-10 py-8 font-black text-ajo-black uppercase tracking-tight">${t.clientName}</td>` : ''}
+                                            <td class="px-10 py-8 font-black text-ajo-black uppercase tracking-tight">
+                                                ${!isClient ? t.clientName : `<span class="text-[10px] text-zinc-500">${planLabel}</span>`}
+                                            </td>
                                             <td class="px-10 py-8">
                                                 <span class="px-4 py-1.5 rounded-lg font-black uppercase text-[9px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-ajo-brown/10 text-ajo-brown'}">${t.type === 'in' ? 'Deposit' : 'Withdrawal'}</span>
                                             </td>
@@ -906,8 +1007,8 @@
                                                 </td>
                                             ` : ''}
                                         </tr>
-                                    `).join('')}
-                                    ${sorted.length === 0 ? `<tr><td colspan="${isClient ? 4 : 6}" class="px-10 py-20 text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest">No entries</td></tr>` : ''}
+                                    `}).join('')}
+                                    ${sorted.length === 0 ? `<tr><td colspan="${isClient ? 5 : 6}" class="px-10 py-20 text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest">No entries found</td></tr>` : ''}
                                 </tbody>
                             </table>
                         </div>
@@ -972,10 +1073,26 @@
                     const pass = document.getElementById('sPass').value;
                     if (pass !== document.getElementById('sPassConfirm').value) throw new Error('Passwords mismatch');
                     validatePasswordPolicy(pass);
-                    const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments: Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value), displayId: generateNextMemberId(), dateCreated: new Date().toISOString() };
+                    
+                    const clientData = { 
+                        firstName: document.getElementById('sFirst').value, 
+                        lastName: document.getElementById('sLast').value, 
+                        email: emailValue, 
+                        phone: document.getElementById('sPhone').value, 
+                        password: pass, 
+                        address: document.getElementById('sAddr').value, 
+                        segments: Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value), 
+                        plans: Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value), 
+                        displayId: generateNextMemberId(), 
+                        dateCreated: new Date().toISOString() 
+                    };
+                    
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
                     await triggerEmails('signup', clientData);
-                    state.lastSignupId = clientData.email; state.showSignupSuccess = true;
+                    
+                    state.lastSignupId = clientData.email; 
+                    state.showSignupSuccess = true;
+                    state.error = '';
                 }
                 if (formId === 'createMemberForm') {
                     const emailValue = document.getElementById('cEmail').value.trim().toLowerCase();
@@ -986,16 +1103,31 @@
                 }
                 if (formId === 'editMemberForm') {
                     const pass = document.getElementById('cPass').value; validatePasswordPolicy(pass);
-                    const updatedData = { firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: document.getElementById('cEmail').value, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments: Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value), password: pass };
+                    const updatedData = { ...state.editingClient, firstName: document.getElementById('cFirst').value, lastName: document.getElementById('cLast').value, email: document.getElementById('cEmail').value, phone: document.getElementById('cPhone').value, address: document.getElementById('cAddr').value, segments: Array.from(document.querySelectorAll('input[name="cSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="cPlans"]:checked')).map(el => el.value), password: pass };
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.editingClient.id), updatedData);
-                    if (pass !== state.editingClient.password) await triggerEmails('password_change', updatedData);
+                    
+                    if (pass !== state.editingClient.password) {
+                        await triggerEmails('password_change', updatedData);
+                    }
+                    
                     showToast('Updated'); state.editingClient = null; state.adminActiveView = 'clients';
                 }
                 if (formId === 'memberProfileUpdateForm') {
                     const newPass = document.getElementById('mPass').value; validatePasswordPolicy(newPass);
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.currentClient.id), { phone: document.getElementById('mPhone').value, password: newPass });
-                    if (newPass !== state.currentClient.password) await triggerEmails('password_change', state.currentClient);
-                    showToast('Updated');
+                    const oldPass = state.currentClient.password;
+                    
+                    const updatePayload = { 
+                        phone: document.getElementById('mPhone').value, 
+                        password: newPass 
+                    };
+                    
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', state.currentClient.id), updatePayload);
+                    
+                    if (newPass !== oldPass) {
+                        await triggerEmails('password_change', state.currentClient);
+                    }
+                    
+                    showToast('Profile Updated');
                 }
                 if (formId === 'adminSettingsForm') {
                     if (document.getElementById('aCurrentPass').value !== state.adminCreds) throw new Error("Incorrect current key.");
@@ -1044,7 +1176,7 @@
                 }
                 render();
             } catch (err) { console.error(err); showToast(err.message, 'error'); } 
-            finally { state.isProcessing = false; }
+            finally { state.isProcessing = false; render(); }
         }
 
         window.onload = initApp;

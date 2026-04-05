@@ -227,7 +227,10 @@
             render(); 
         };
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
-        window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; };
+        window.toggleMobileSidebar = () => { 
+            state.mobileSidebarOpen = !state.mobileSidebarOpen; 
+            render(); // Added missing render to make mobile menu responsive
+        };
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.viewProof = (dataUrl) => { state.viewingProof = dataUrl; render(); };
         window.closeProof = () => { state.viewingProof = null; render(); };
@@ -319,8 +322,6 @@
             if (snap.exists()) {
                 state.adminCreds = snap.data().password;
             } else {
-                // This means the admin hasn't been set up in Firestore yet.
-                // Admin must create the document manually at the path.
                 state.adminCreds = null;
             }
         }
@@ -851,7 +852,7 @@
             const c = state.currentClient;
             const t = state.transactions.filter(x => x.clientId === c.id);
             const bal = t.reduce((acc, x) => acc + (x.type === 'in' ? Number(x.amount) : -Number(x.amount)), 0);
-            return `<div class="space-y-16 animate-in fade-in duration-500"><div class="bg-ajo-black p-12 md:p-20 rounded-[4rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-20 -right-20 w-80 h-80 bg-ajo-brown/10 rounded-full blur-[100px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-6 tracking-[0.5em]">Consolidated Balance</p><h3 class="text-6xl md:text-8xl font-black mb-12 tracking-tighter">₦${bal.toLocaleString()}</h3><div class="flex flex-wrap gap-4"><div class="px-6 py-3 bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 font-mono">LEDGER: ${c.displayId}</div><div class="px-6 py-3 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Cycles</div></div></div><div class="space-y-10"><div class="flex items-center gap-4"><div class="w-2 h-8 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">Savings Portfolio</h3></div><div class="grid gap-10">${['daily', 'weekly', 'monthly'].map(catId => { const plans = THRIFT_PLANS[catId].filter(p => (c.plans || []).includes(p.id)); if (plans.length === 0) return ''; return `<div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b bg-zinc-50/50 flex justify-between items-center"><h4 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">${catId} Series</h4></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Target Plan</th><th class="px-10 py-6 text-center">Progress</th><th class="px-10 py-6 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => { const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id); const pVal = pT.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0); const progress = Math.min((pVal / p.packValue) * 100, 100); return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-8 font-black text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-10 py-8"><div class="flex items-center justify-center gap-4"><div class="w-40 bg-zinc-100 h-2 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all" style="width: ${progress}%"></div></div><span class="text-[10px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-10 py-8 text-right font-black text-sm tracking-tighter text-ajo-black">₦${pVal.toLocaleString()}</td></tr>`; }).join('')}</tbody></table></div></div>`; }).join('')}</div></div></div>`;
+            return `<div class="space-y-16 animate-in fade-in duration-500"><div class="bg-ajo-black p-12 md:p-20 rounded-[4rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-20 -right-20 w-80 h-80 bg-ajo-brown/10 rounded-full blur-[100px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-6 tracking-[0.5em]">Consolidated Balance</p><h3 class="text-6xl md:text-8xl font-black mb-12 tracking-tighter">₦${bal.toLocaleString()}</h3><div class="flex flex-wrap gap-4"><div class="px-6 py-3 bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 font-mono">LEDGER: ${c.displayId}</div><div class="px-6 py-3 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Cycles</div></div></div><div class="space-y-10"><div class="flex items-center gap-4"><div class="w-2 h-8 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">Savings Portfolio</h3></div><div class="grid gap-10">${['daily', 'weekly', 'monthly'].map(catId => { const plans = THRIFT_PLANS[catId].filter(p => (c.plans || []).includes(p.id)); if (plans.length === 0) return ''; return `<div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b bg-zinc-50/50 flex justify-between items-center"><h4 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">${catId} Series</h4></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Target Plan</th><th class="px-10 py-6 text-center">Progress</th><th class="px-10 py-6 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => { const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id); const pVal = pT.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0); const progress = Math.min((pVal / p.packValue) * 100, 100); return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-8 font-black text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-10 py-8"><div class="flex items-center justify-center gap-4"><div class="w-40 bg-zinc-100 h-2 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000" style="width: ${progress}%"></div></div><span class="text-[10px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-10 py-8 text-right font-black text-sm tracking-tighter text-ajo-black">₦${pVal.toLocaleString()}</td></tr>`; }).join('')}</tbody></table></div></div>`; }).join('')}</div></div></div>`;
         }
 
         function renderMemberProfile() {
@@ -921,8 +922,8 @@
                     <div class="bg-white rounded-[4rem] p-12 lg:p-20 max-w-xl w-full text-center shadow-2xl animate-in zoom-in duration-500">
                         <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-10"><i data-lucide="check-circle" class="text-green-500" size="40"></i></div>
                         <h3 class="text-3xl font-black text-ajo-black mb-6 uppercase tracking-tighter">Authorized</h3>
-                        <p class="text-zinc-500 text-sm leading-relaxed mb-12">Your savings portfolio has been initialized. Please check your email <b>${state.lastSignupId}</b> for credentials.</p>
-                        <button onclick="state.showSignupSuccess=false; window.navigate('client-login')" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Proceed to Login</button>
+                        <p class="text-zinc-500 text-sm leading-relaxed mb-12">Your savings portfolio has been initialized. Please check credentials sent to your email.</p>
+                        <button onclick="window.navigate('client-login')" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-ajo-brown transition-all">Proceed to Login</button>
                     </div>
                 </div>
             `;
@@ -971,8 +972,7 @@
                     const pass = document.getElementById('sPass').value;
                     if (pass !== document.getElementById('sPassConfirm').value) throw new Error('Passwords mismatch');
                     validatePasswordPolicy(pass);
-                    const displayId = generateNextMemberId();
-                    const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments: Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value), displayId, dateCreated: new Date().toISOString() };
+                    const clientData = { firstName: document.getElementById('sFirst').value, lastName: document.getElementById('sLast').value, email: emailValue, phone: document.getElementById('sPhone').value, password: pass, address: document.getElementById('sAddr').value, segments: Array.from(document.querySelectorAll('input[name="sSegments"]:checked')).map(el => el.value), plans: Array.from(document.querySelectorAll('input[name="sPlans"]:checked')).map(el => el.value), displayId: generateNextMemberId(), dateCreated: new Date().toISOString() };
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), clientData);
                     await triggerEmails('signup', clientData);
                     state.lastSignupId = clientData.email; state.showSignupSuccess = true;
@@ -998,7 +998,7 @@
                     showToast('Updated');
                 }
                 if (formId === 'adminSettingsForm') {
-                    if (document.getElementById('aCurrentPass').value !== state.adminCreds) throw new Error("Incorrect key.");
+                    if (document.getElementById('aCurrentPass').value !== state.adminCreds) throw new Error("Incorrect current key.");
                     const newP = document.getElementById('aNewPass').value; validatePasswordPolicy(newP);
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'admin_access'), { password: newP, updatedAt: new Date().toISOString() });
                     showToast("Key updated."); state.adminActiveView = 'dashboard';

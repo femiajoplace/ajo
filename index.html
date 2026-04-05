@@ -584,6 +584,7 @@
                             <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
                         </div>
                         <div class="hidden md:flex items-center gap-10">
+                            <a href="https://femiajoplace.blogspot.com/" target="_blank" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Blog</a>
                             <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Admin Access</button>
                             <button onclick="window.navigate('client-login')" class="px-8 py-3 bg-ajo-black text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
                         </div>
@@ -599,6 +600,7 @@
                         <div class="space-y-6">
                             <button onclick="window.navigate('client-login')" class="w-full py-6 bg-white text-ajo-black rounded-2xl font-black uppercase tracking-widest text-[10px]">Member Login</button>
                             <button onclick="window.navigate('signup')" class="w-full py-6 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Create Portfolio</button>
+                            <a href="https://www.blogger.com" target="_blank" class="block w-full py-6 text-center border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Blog</a>
                             <button onclick="window.navigate('admin-login')" class="w-full py-6 text-zinc-600 font-black uppercase tracking-widest text-[9px] italic">System Admin</button>
                         </div>
                     </div>` : ''}
@@ -654,7 +656,7 @@
                     </div>
 
                     <!-- Core Value Proposition Section -->
-                    <div class="py-24 max-w-7xl mx-auto px-6 lg:px-12 space-y-16">
+                    <div class="py-24 max-w-7xl mx-auto px-6 lg:px-12 space-y-16 border-b border-zinc-50">
                         <div class="text-center space-y-4">
                             <p class="text-[10px] font-black uppercase text-ajo-brown tracking-[0.5em]">Our DNA</p>
                             <h2 class="text-4xl md:text-6xl font-black text-ajo-black tracking-tighter uppercase leading-none">Core Value Proposition</h2>
@@ -667,6 +669,31 @@
                             ${renderCoreValueItem('zap', 'Execution', 'Turning savings into outcomes')}
                         </div>
                     </div>
+
+                    <!-- Footer Section -->
+                    <footer class="bg-white py-16">
+                        <div class="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col md:flex-row justify-between items-center gap-12">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 bg-ajo-black rounded-xl flex items-center justify-center font-black text-white shadow-lg">F</div>
+                                <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
+                            </div>
+                            <div class="flex flex-col md:flex-row items-center gap-8 md:gap-16">
+                                <div class="flex flex-col items-center md:items-start gap-2">
+                                    <p class="text-[8px] font-black uppercase text-zinc-300 tracking-[0.4em]">Email Support</p>
+                                    <a href="mailto:support@femiajoplace.com" class="flex items-center gap-3 text-[11px] font-black uppercase text-ajo-black hover:text-ajo-brown transition-colors tracking-widest">
+                                        <i data-lucide="mail" size="16"></i> support@femiajoplace.com
+                                    </a>
+                                </div>
+                                <div class="flex flex-col items-center md:items-start gap-2">
+                                    <p class="text-[8px] font-black uppercase text-zinc-300 tracking-[0.4em]">Phone Hotline</p>
+                                    <a href="tel:08033636856" class="flex items-center gap-3 text-[11px] font-black uppercase text-ajo-black hover:text-ajo-brown transition-colors tracking-widest">
+                                        <i data-lucide="phone" size="16"></i> 08033636856
+                                    </a>
+                                </div>
+                            </div>
+                            <p class="text-[9px] font-bold text-zinc-300 uppercase tracking-[0.3em]">© 2023 Femi Ajo Place</p>
+                        </div>
+                    </footer>
                 </div>
             `;
         }

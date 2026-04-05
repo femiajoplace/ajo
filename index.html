@@ -172,7 +172,7 @@
             editingClient: null,
             selectedClientForTrans: null,
             editingTransaction: null,
-            transactionToDelete: null, // Track transaction pending deletion
+            transactionToDelete: null, 
             currentTransType: 'in', 
             clientsSearch: '',
             showSignupSuccess: false,
@@ -227,7 +227,7 @@
             render(); 
         };
         window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
-        window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; render(); };
+        window.toggleMobileSidebar = () => { state.mobileSidebarOpen = !state.mobileSidebarOpen; };
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.viewProof = (dataUrl) => { state.viewingProof = dataUrl; render(); };
         window.closeProof = () => { state.viewingProof = null; render(); };
@@ -316,11 +316,12 @@
             if (!state.user) return;
             const adminDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'admin_access');
             const snap = await getDoc(adminDocRef);
-            if (!snap.exists()) {
-                await setDoc(adminDocRef, { password: 'admin123', updatedAt: new Date().toISOString() });
-                state.adminCreds = 'admin123';
-            } else {
+            if (snap.exists()) {
                 state.adminCreds = snap.data().password;
+            } else {
+                // This means the admin hasn't been set up in Firestore yet.
+                // Admin must create the document manually at the path.
+                state.adminCreds = null;
             }
         }
 
@@ -351,12 +352,12 @@
                     if (fresh) state.currentClient = fresh;
                 }
                 render();
-            }, (err) => console.error("Clients Sync Error:", err));
+            });
 
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), (snap) => {
                 state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            }, (err) => console.error("Transactions Sync Error:", err));
+            });
 
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'admin_access'), (snap) => {
                 if (snap.exists()) state.adminCreds = snap.data().password;
@@ -476,7 +477,7 @@
                         </div>
                         <h3 class="text-2xl font-black text-ajo-black mb-4 uppercase tracking-tighter">Confirm Deletion</h3>
                         <p class="text-zinc-500 text-sm leading-relaxed mb-10">
-                            Are you sure you want to permanently delete this transaction record? This action cannot be undone and will affect the member's consolidated balance.
+                            Are you sure you want to permanently delete this transaction record? This action cannot be undone.
                         </p>
                         <div class="flex flex-col gap-3">
                             <button onclick="window.executeDeleteTransaction()" class="w-full py-5 bg-red-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-red-600 transition-all">Yes, Delete Record</button>
@@ -539,38 +540,6 @@
                             ${renderFeatureCard('zap', 'Proven Execution', 'Not a concept, but a system with real users and real-life outcomes.')}
                         </div>
                     </div>
-
-                    <section class="bg-ajo-black text-white py-20 rounded-[4rem] mx-4 md:mx-10 shadow-2xl relative overflow-hidden">
-                        <div class="max-w-6xl mx-auto px-8 relative z-10 space-y-20">
-                            <div class="grid lg:grid-cols-2 gap-16 items-center">
-                                <div class="space-y-8">
-                                    <h3 class="text-ajo-brown text-[10px] font-black uppercase tracking-[0.5em]">What We Are</h3>
-                                    <h2 class="text-4xl md:text-5xl font-black tracking-tight text-white uppercase">Purpose-Driven Savings</h2>
-                                    <p class="text-zinc-400 text-lg leading-relaxed">
-                                        Femi Ajo Place is a structured thrift coordination system (Ajo) designed to help individuals and groups save in a disciplined, transparent, and organized manner. We operate a rotational contribution model with real users and results.
-                                    </p>
-                                    <div class="flex gap-12 border-t border-white/5 pt-10">
-                                        <div><p class="text-ajo-brown font-black text-5xl tracking-tighter">50+</p><p class="text-[10px] uppercase font-black text-zinc-500 mt-2 tracking-widest">Active Clients</p></div>
-                                        <div><p class="text-ajo-brown font-black text-5xl tracking-tighter">3yr</p><p class="text-[10px] uppercase font-black text-zinc-500 mt-2 tracking-widest">Consistent Op</p></div>
-                                    </div>
-                                </div>
-                                <div class="bg-white/5 border border-white/10 p-10 rounded-[3rem] backdrop-blur-md">
-                                    <h4 class="font-black text-ajo-brown text-[10px] uppercase tracking-widest mb-8">Our Unique Approach</h4>
-                                    <p class="text-zinc-300 text-sm mb-6 leading-relaxed">Beyond simple thrift collection, we deliver a system that helps you use money intentionally:</p>
-                                    <ul class="space-y-6 text-sm">
-                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Save towards specific milestones (Business, Rent, Assets).</li>
-                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Build financial discipline and consistency.</li>
-                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Eliminate unstructured spending habits.</li>
-                                        <li class="flex gap-4"><i data-lucide="check" class="text-ajo-brown shrink-0" size="18"></i> Convert savings into real-life outcomes and progress.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <footer class="py-20 px-6 text-center border-t border-zinc-100 mt-20">
-                        <p class="uppercase tracking-[0.5em] text-zinc-300 text-[10px] font-black mb-4">© 2024 Femi Ajo Place</p>
-                    </footer>
                 </div>
             `;
         }
@@ -620,6 +589,7 @@
                     <form id="signupForm" class="max-w-3xl mx-auto bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-ajo-brown/5 space-y-12 animate-in zoom-in duration-300">
                         <div class="text-center space-y-3">
                             <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo</h2>
+                            <p class="text-[9px] text-zinc-400 uppercase font-black tracking-widest mt-2">Password: 8-32 chars, A-Z, a-z, 0-9, symbol</p>
                         </div>
                         <div class="grid sm:grid-cols-2 gap-8">
                             ${renderField('First Name', 'sFirst', 'text', true)}
@@ -1045,9 +1015,9 @@
                             reader.onload = e => res(e.target.result);
                             reader.readAsDataURL(fileInput.files[0]);
                         });
-                        if (proofUrl.length > 800000) throw new Error("Slip too large. Use a smaller image.");
+                        if (proofUrl.length > 800000) throw new Error("Slip too large.");
                     } else if (!isEdit) {
-                        throw new Error("Proof slip required for new transactions.");
+                        throw new Error("Proof slip required.");
                     }
 
                     const transData = { 

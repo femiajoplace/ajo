@@ -236,6 +236,15 @@
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.viewProof = (dataUrl) => { state.viewingProof = dataUrl; render(); };
         window.closeProof = () => { state.viewingProof = null; render(); };
+        window.scrollToContact = () => {
+            state.landingMenuOpen = false;
+            state.mobileSidebarOpen = false;
+            render();
+            // Wait for DOM to update after potential render call
+            setTimeout(() => {
+                document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        };
 
         window.handleLogout = async () => {
             if (state.user) {
@@ -378,8 +387,6 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            const linkText = document.createTextNode("Download CSV");
-            link.appendChild(linkText);
             link.setAttribute("download", `FemiAjo_MembersFull_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(link);
             link.click();
@@ -586,6 +593,7 @@
                         </div>
                         <div class="hidden md:flex items-center gap-10">
                             <a href="https://femiajoplace.blogspot.com/" target="_blank" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Blog</a>
+                            <button onclick="window.scrollToContact()" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Contact Us</button>
                             <button onclick="window.navigate('admin-login')" class="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 hover:text-ajo-brown transition-all">Admin Access</button>
                             <button onclick="window.navigate('client-login')" class="px-8 py-3 bg-ajo-black text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-ajo-brown transition-all premium-shadow">Login</button>
                         </div>
@@ -601,7 +609,8 @@
                         <div class="space-y-6">
                             <button onclick="window.navigate('client-login')" class="w-full py-6 bg-white text-ajo-black rounded-2xl font-black uppercase tracking-widest text-[10px]">Member Login</button>
                             <button onclick="window.navigate('signup')" class="w-full py-6 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Create Portfolio</button>
-                            <a href="https://www.blogger.com" target="_blank" class="block w-full py-6 text-center border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Blog</a>
+                            <button onclick="window.scrollToContact()" class="w-full py-6 border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Contact Us</button>
+                            <a href="https://femiajoplace.blogspot.com" target="_blank" class="block w-full py-6 text-center border border-white/20 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]">Blog</a>
                             <button onclick="window.navigate('admin-login')" class="w-full py-6 text-zinc-600 font-black uppercase tracking-widest text-[9px] italic">System Admin</button>
                         </div>
                     </div>` : ''}
@@ -696,12 +705,18 @@
 
         function renderGlobalFooter() {
             return `
-                <footer class="bg-white py-16 border-t border-zinc-50">
+                <footer id="contact-section" class="bg-white py-16 border-t border-zinc-50">
                     <div class="max-w-7xl mx-auto px-6 lg:px-12 space-y-12">
                         <div class="flex flex-col md:flex-row justify-between items-center gap-12">
-                            <div class="flex items-center gap-4">
-                                <img src="${LOGO_URL}" class="w-10 h-10 rounded-xl object-cover" alt="Logo">
-                                <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
+                            <div class="flex flex-col items-center md:items-start gap-4">
+                                <div class="flex items-center gap-4">
+                                    <img src="${LOGO_URL}" class="w-10 h-10 rounded-xl object-cover" alt="Logo">
+                                    <span class="font-black text-xl tracking-tighter text-ajo-black uppercase">Femi Ajo Place</span>
+                                </div>
+                                <div class="mt-4 max-w-sm">
+                                    <p class="text-[10px] font-black uppercase text-ajo-brown tracking-[0.3em]">Special Inquiry</p>
+                                    <p class="text-[11px] font-black text-zinc-500 uppercase tracking-tight mt-2 leading-relaxed">For Special Ajo plans, Individual or Business, please contact us with the information below</p>
+                                </div>
                             </div>
                             <div class="flex flex-col md:flex-row items-center gap-8 md:gap-16">
                                 <div class="flex flex-col items-center md:items-start gap-2">
@@ -714,7 +729,10 @@
                                 </div>
                                 <div class="flex flex-col items-center md:items-start gap-2">
                                     <p class="text-[8px] font-black uppercase text-zinc-300 tracking-[0.4em]">Phone Support</p>
-                                    <a href="tel:+2348033636856" class="text-[11px] font-black uppercase text-ajo-black tracking-widest">+234 803 363 6856</a>
+                                    <div class="flex flex-col items-center md:items-start">
+                                        <a href="tel:+2348142364288" class="text-[11px] font-black uppercase text-ajo-black tracking-widest">+234 814 236 4288</a>
+                                        <a href="tel:+2348033636856" class="text-[11px] font-black uppercase text-ajo-black tracking-widest mt-1">+234 803 363 6856</a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -862,6 +880,10 @@
                                 ${renderNavItem('user-circle', 'Identity', activeView === 'profile', 'navigateClient', 'profile')}
                                 ${renderNavItem('credit-card', 'Payments', activeView === 'payment', 'navigateClient', 'payment')}
                                 ${renderNavItem('history', 'Timeline', activeView === 'history', 'navigateClient', 'history')}
+                                <button onclick="window.scrollToContact()" class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all text-zinc-500 hover:bg-zinc-900 hover:text-white">
+                                    <i data-lucide="phone-call" size="18" class="shrink-0"></i>
+                                    <span class="font-black text-[10px] uppercase tracking-[0.2em]">Contact Us</span>
+                                </button>
                             `}
                         </nav>
                         <div class="p-6 border-t border-white/5">
@@ -1135,6 +1157,7 @@
                                 <input type="file" id="tProof" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-10">
                                 <i data-lucide="file-text" class="mx-auto text-zinc-200 group-hover:text-ajo-brown mb-6 transition-colors" size="48"></i>
                                 <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.25em]">${isEdit ? 'Update Slip (Optional)' : 'Upload Slip (Required)'}</p>
+                                <p class="text-[8px] text-zinc-400 uppercase font-black mt-2">Max Size: 1MB</p>
                             </div>
                             <button type="submit" class="w-full py-7 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-ajo-brown transition-all">${isEdit ? 'Update Ledger Record' : 'Commit to Ledger'}</button>
                         </form>
@@ -1194,6 +1217,7 @@
         function renderLedger(transactions, isClient = false) {
             const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
             const isAdmin = state.view === 'admin-dash';
+            const allPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly];
             
             return `
                 <div class="space-y-10 animate-in fade-in duration-500">
@@ -1217,7 +1241,7 @@
                                 <thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-[0.3em]">
                                     <tr>
                                         <th class="px-10 py-6">Timestamp</th>
-                                        ${!isClient ? '<th class="px-10 py-6">Member</th>' : '<th class="px-10 py-6">Target Plan</th>'}
+                                        ${!isClient ? '<th class="px-10 py-6">Member & Plan</th>' : '<th class="px-10 py-6">Target Plan</th>'}
                                         <th class="px-10 py-6">Action</th>
                                         <th class="px-10 py-6 text-center">Slip</th>
                                         <th class="px-10 py-6 text-right">Value (₦)</th>
@@ -1226,7 +1250,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-zinc-50">
                                     ${sorted.map(t => {
-                                        const planLabel = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly].find(p => p.id === t.planId)?.label || 'Plan';
+                                        const planLabel = allPlans.find(p => p.id === t.planId)?.label || 'Other/Misc';
                                         return `
                                         <tr class="hover:bg-zinc-50 transition-colors">
                                             <td class="px-10 py-8 text-zinc-400 font-bold">
@@ -1234,7 +1258,10 @@
                                                 <div class="text-[8px] uppercase mt-1">${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                             </td>
                                             <td class="px-10 py-8 font-black text-ajo-black uppercase tracking-tight">
-                                                ${!isClient ? t.clientName : `<span class="text-[10px] text-zinc-500">${planLabel}</span>`}
+                                                ${!isClient ? `
+                                                    <div class="text-ajo-black">${t.clientName}</div>
+                                                    <div class="text-[8px] text-zinc-400 mt-1 font-bold italic">${planLabel}</div>
+                                                ` : `<span class="text-[10px] text-zinc-500">${planLabel}</span>`}
                                             </td>
                                             <td class="px-10 py-8">
                                                 <span class="px-4 py-1.5 rounded-lg font-black uppercase text-[9px] tracking-widest ${t.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-ajo-brown/10 text-ajo-brown'}">${t.type === 'in' ? 'Deposit' : 'Withdrawal'}</span>
@@ -1414,11 +1441,20 @@
                     const isEdit = !!state.editingTransaction;
                     let proofUrl = isEdit ? state.editingTransaction.proofUrl : null;
 
+                    // SECURITY CHECK: 1MB LIMIT
+                    const MAX_SIZE = 1 * 1024 * 1024; // 1MB in bytes
+
                     if (fileInput.files.length > 0) {
+                        const file = fileInput.files[0];
+                        
+                        if (file.size > MAX_SIZE) {
+                            throw new Error("File size exceeds 1MB limit. Please compress the image.");
+                        }
+
                         const reader = new FileReader();
                         proofUrl = await new Promise(res => {
                             reader.onload = e => res(e.target.result);
-                            reader.readAsDataURL(fileInput.files[0]);
+                            reader.readAsDataURL(file);
                         });
                     } else if (!isEdit) {
                         throw new Error("Proof slip required.");

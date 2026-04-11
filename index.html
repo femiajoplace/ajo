@@ -387,7 +387,8 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `FemiAjo_MembersFull_${new Date().toISOString().split('T')[0]}.csv`);
+            const fileName = `FemiAjo_MembersFull_${new Date().toISOString().split('T')[0]}.csv`;
+            link.setAttribute("download", fileName);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -496,6 +497,20 @@
                         amount: `₦${Number(data.amount).toLocaleString()}`,
                         to_email: data.client.email
                     });
+                } else if (type === 'edit_transaction') {
+                    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
+                        name: data.client.firstName,
+                        transaction_type: `MODIFIED LEDGER RECORD: ${data.type === 'in' ? 'Deposit' : 'Withdrawal'}`,
+                        amount: `₦${Number(data.amount).toLocaleString()} (Entry Adjusted by Admin)`,
+                        to_email: data.client.email
+                    });
+                } else if (type === 'delete_transaction') {
+                    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
+                        name: data.client.firstName,
+                        transaction_type: `DELETED RECORD: ${data.type === 'in' ? 'Deposit' : 'Withdrawal'}`,
+                        amount: `₦${Number(data.amount).toLocaleString()} (Entry Removed by Admin)`,
+                        to_email: data.client.email
+                    });
                 } else if (type === 'password_change') {
                     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TRANS_TEMPLATE, {
                         name: data.firstName,
@@ -576,7 +591,7 @@
                         </p>
                         <div class="flex flex-col gap-3">
                             <button onclick="window.executeDeleteTransaction()" class="w-full py-5 bg-red-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-red-600 transition-all">Yes, Delete Record</button>
-                            <button onclick="window.cancelDeleteTransaction()" class="w-full py-5 bg-zinc-100 text-zinc-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Cancel</button>
+                            <button onclick="window.cancelDeleteConfirmation()" class="w-full py-5 bg-zinc-100 text-zinc-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -1092,7 +1107,15 @@
         window.executeDeleteTransaction = async () => {
             if (!state.transactionToDelete) return;
             try {
+                const trans = state.transactions.find(t => t.id === state.transactionToDelete);
+                const client = trans ? state.clients.find(c => c.id === trans.clientId) : null;
+
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', state.transactionToDelete));
+                
+                if (trans && client) {
+                    await triggerEmails('delete_transaction', { client, amount: trans.amount, type: trans.type });
+                }
+
                 showToast("Record removed from ledger");
             } catch (err) {
                 showToast("Failed to delete record", "error");
@@ -1102,7 +1125,7 @@
             }
         };
 
-        window.cancelDeleteTransaction = () => {
+        window.cancelDeleteConfirmation = () => {
             state.transactionToDelete = null;
             render();
         };
@@ -1473,6 +1496,7 @@
 
                     if (isEdit) {
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', state.editingTransaction.id), transData);
+                        await triggerEmails('edit_transaction', { client, amount: transData.amount, type: state.currentTransType });
                         showToast('Record updated');
                     } else {
                         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), transData);

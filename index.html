@@ -53,6 +53,7 @@
         
         .gradient-text {
             background: linear-gradient(135deg, #8B5E3C 0%, #4A2E19 100%);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -85,30 +86,12 @@
 </head>
 <body class="antialiased">
 
-    <div id="app">
-        <!-- Initial Loading State -->
-        <div class="flex items-center justify-center h-screen bg-ajo-black text-white text-center">
-            <div class="space-y-6">
-                <div class="relative w-16 h-16 mx-auto">
-                    <div class="absolute inset-0 border-4 border-ajo-brown/20 rounded-full"></div>
-                    <div class="absolute inset-0 border-4 border-ajo-brown rounded-full border-t-transparent animate-spin"></div>
-                </div>
-                <div>
-                    <h2 class="text-xs font-black uppercase tracking-[0.4em] text-ajo-brown">Femi Ajo Place</h2>
-                    <p class="text-zinc-500 font-bold tracking-widest text-[10px] uppercase mt-2">Connecting to Secure Ledger...</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div id="app"></div>
 
     <!-- Notification Toasts -->
     <div id="toast-container" class="fixed bottom-6 right-6 z-[200] flex flex-col gap-3"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, setDoc, getDoc, updateDoc, onSnapshot, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
         // --- CONFIG & CONSTANTS ---
         const THRIFT_PLANS = {
             daily: [
@@ -182,8 +165,18 @@
             error: '',
             mobileSidebarOpen: false,
             landingMenuOpen: false,
+            timelineMonth: new Date().toISOString().slice(0, 7),
+            adminSummaryMonth: new Date().toISOString().slice(0, 7),
+            adminPageSize: 20,
+            adminLastTransactionDoc: null,
+            adminHasMoreTransactions: false,
+            isLoadingMoreTransactions: false,
+            adminSummaryInflow: 0,
+            adminSummaryOutflow: 0,
+            adminSummaryCount: 0,
             isProcessing: false,
-            isCheckingSession: true,
+            isCheckingSession: false,
+            isLedgerReady: false,
             viewingProof: null,
             // Custom Admin Settings
             customSegments: [],
@@ -191,6 +184,8 @@
         };
 
         let db, auth;
+        let initializeApp, getFirestore, collection, doc, addDoc, setDoc, getDoc, updateDoc, onSnapshot, query, where, getDocs, deleteDoc, orderBy, limit, startAfter, getAggregateFromServer, sum, count;
+        let getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged;
 
         // --- HELPER FUNCTIONS ---
         window.showToast = (message, type = 'success') => {
@@ -223,15 +218,28 @@
             window.scrollTo(0, 0);
         };
 
-        window.navigateAdmin = (v) => { 
+        window.navigateAdmin = async (v) => { 
             state.adminActiveView = v; 
             state.mobileSidebarOpen = false; 
             if (v !== 'transaction') {
                 state.editingTransaction = null;
             }
+            if (v === 'dashboard' || v === 'history') {
+                await loadTransactionsForContext();
+            }
+            if (v === 'dashboard') {
+                await loadAdminSummaryTotals();
+            }
             render(); 
         };
-        window.navigateClient = (v) => { state.clientActiveView = v; state.mobileSidebarOpen = false; render(); };
+        window.navigateClient = async (v) => { 
+            state.clientActiveView = v; 
+            state.mobileSidebarOpen = false; 
+            if (v === 'dashboard' || v === 'history') {
+                await loadTransactionsForContext();
+            }
+            render(); 
+        };
         window.toggleMobileSidebar = () => { 
             state.mobileSidebarOpen = !state.mobileSidebarOpen; 
             render();
@@ -239,6 +247,20 @@
         window.toggleLandingMenu = () => { state.landingMenuOpen = !state.landingMenuOpen; render(); };
         window.viewProof = (dataUrl) => { state.viewingProof = dataUrl; render(); };
         window.closeProof = () => { state.viewingProof = null; render(); };
+        window.togglePasswordVisibility = (id) => {
+            const input = document.getElementById(id);
+            if (!input) return;
+
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+
+            const label = document.getElementById(`${id}-toggle-label`);
+            if (label) label.textContent = shouldShow ? 'Hide' : 'Show';
+
+            const icon = document.getElementById(`${id}-toggle-icon`);
+            if (icon) icon.setAttribute('data-lucide', shouldShow ? 'eye-off' : 'eye');
+            lucide.createIcons();
+        };
         window.scrollToContact = () => {
             state.landingMenuOpen = false;
             state.mobileSidebarOpen = false;
@@ -254,6 +276,7 @@
                 const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
                 await deleteDoc(sessionRef);
             }
+            localStorage.removeItem('femiAjoSession');
             state.view = 'landing';
             state.currentClient = null;
             state.mobileSidebarOpen = false;
@@ -264,6 +287,39 @@
         window.setTransType = (type) => {
             state.currentTransType = type;
             render();
+        };
+        window.setTimelineMonth = (value) => {
+            state.timelineMonth = value || new Date().toISOString().slice(0, 7);
+            render();
+        };
+        window.setAdminSummaryMonth = async (value) => {
+            state.adminSummaryMonth = value || new Date().toISOString().slice(0, 7);
+            await loadAdminSummaryTotals();
+            render();
+        };
+        window.loadMoreAdminTransactions = async () => {
+            if (state.view !== 'admin-dash' || state.isLoadingMoreTransactions || !state.adminHasMoreTransactions || !state.adminLastTransactionDoc) return;
+            state.isLoadingMoreTransactions = true;
+            render();
+            try {
+                const nextQuery = query(
+                    collection(db, 'artifacts', appId, 'public', 'data', 'transactions'),
+                    orderBy('date', 'desc'),
+                    startAfter(state.adminLastTransactionDoc),
+                    limit(state.adminPageSize)
+                );
+                const snap = await getDocs(nextQuery);
+                const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                state.transactions = [...state.transactions, ...rows];
+                state.adminLastTransactionDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+                state.adminHasMoreTransactions = snap.docs.length === state.adminPageSize;
+            } catch (err) {
+                console.error("Failed to load more transactions:", err);
+                showToast("Could not load more entries.", "error");
+            } finally {
+                state.isLoadingMoreTransactions = false;
+                render();
+            }
         };
 
         function generateNextMemberId() {
@@ -290,6 +346,95 @@
             if (!/\d/.test(password)) throw new Error("Password needs a number.");
             if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) throw new Error("Password needs a special character.");
             return true;
+        }
+
+        function assertLedgerReady() {
+            if (!state.isLedgerReady || !db || !auth || !state.user) {
+                throw new Error("Secure ledger is still connecting. Please try again in a moment.");
+            }
+        }
+
+        async function loadTransactionsForContext() {
+            if (!db) return;
+
+            try {
+                if (state.view === 'admin-dash') {
+                    const adminQuery = query(
+                        collection(db, 'artifacts', appId, 'public', 'data', 'transactions'),
+                        orderBy('date', 'desc'),
+                        limit(state.adminPageSize)
+                    );
+                    const snap = await getDocs(adminQuery);
+                    state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    state.adminLastTransactionDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+                    state.adminHasMoreTransactions = snap.docs.length === state.adminPageSize;
+                    return;
+                }
+
+                if (state.view === 'client-dash' && state.currentClient?.id) {
+                    const clientQuery = query(
+                        collection(db, 'artifacts', appId, 'public', 'data', 'transactions'),
+                        where('clientId', '==', state.currentClient.id),
+                        orderBy('date', 'desc')
+                    );
+                    const snap = await getDocs(clientQuery);
+                    state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    state.adminLastTransactionDoc = null;
+                    state.adminHasMoreTransactions = false;
+                }
+            } catch (err) {
+                console.error("Failed to load transactions:", err);
+                showToast("Could not load transactions.", "error");
+            }
+        }
+
+        async function loadAdminSummaryTotals() {
+            if (!db) return;
+            const [year, month] = state.adminSummaryMonth.split('-').map(Number);
+            const start = new Date(Date.UTC(year, month - 1, 1)).toISOString();
+            const end = new Date(Date.UTC(year, month, 1)).toISOString();
+
+            try {
+                const monthBaseQuery = query(
+                    collection(db, 'artifacts', appId, 'public', 'data', 'transactions'),
+                    where('date', '>=', start),
+                    where('date', '<', end)
+                );
+
+                if (!getAggregateFromServer || !sum || !count) {
+                    throw new Error('Aggregate queries are not available.');
+                }
+                const [inAgg, outAgg, countAgg] = await Promise.all([
+                    getAggregateFromServer(query(monthBaseQuery, where('type', '==', 'in')), { total: sum('amount') }),
+                    getAggregateFromServer(query(monthBaseQuery, where('type', '==', 'out')), { total: sum('amount') }),
+                    getAggregateFromServer(monthBaseQuery, { total: count() })
+                ]);
+                state.adminSummaryInflow = Number(inAgg.data().total || 0);
+                state.adminSummaryOutflow = Number(outAgg.data().total || 0);
+                state.adminSummaryCount = Number(countAgg.data().total || 0);
+            } catch (err) {
+                console.error("Failed to load admin summary totals:", err);
+                state.adminSummaryInflow = 0;
+                state.adminSummaryOutflow = 0;
+                state.adminSummaryCount = 0;
+                showToast("Could not load admin summary totals.", "error");
+            }
+        }
+
+        function saveLocalSession(payload) {
+            try {
+                localStorage.setItem('femiAjoSession', JSON.stringify({ ...payload, savedAt: new Date().toISOString() }));
+            } catch (_) {}
+        }
+
+        function readLocalSession() {
+            try {
+                const raw = localStorage.getItem('femiAjoSession');
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (_) {
+                return null;
+            }
         }
 
         // --- EXPORT LOGIC ---
@@ -379,7 +524,21 @@
 
         // --- CORE LOGIC ---
         async function initApp() {
+            const pendingLocalSession = readLocalSession();
+            state.isCheckingSession = !!pendingLocalSession;
+            render();
+
             try {
+                const [appModule, firestoreModule, authModule] = await Promise.all([
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js")
+                ]);
+
+                ({ initializeApp } = appModule);
+                ({ getFirestore, collection, doc, addDoc, setDoc, getDoc, updateDoc, onSnapshot, query, where, getDocs, deleteDoc, orderBy, limit, startAfter, getAggregateFromServer, sum, count } = firestoreModule);
+                ({ getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = authModule);
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -396,11 +555,32 @@
                 onAuthStateChanged(auth, async (user) => {
                     state.user = user;
                     if (user) {
-                        await bootstrapAdmin();
-                        setupRealtimeListeners();
-                        await checkPersistentSession(user);
+                        try {
+                            await bootstrapAdmin();
+                            setupRealtimeListeners();
+                            state.isLedgerReady = true;
+                            render();
+                        } catch (ledgerErr) {
+                            console.error("Ledger initialization failed:", ledgerErr);
+                            state.isLedgerReady = false;
+                            showToast("Ledger connection failed. Please refresh or try again.", "error");
+                            return;
+                        }
+
+                        try {
+                            await checkPersistentSession(user);
+                            await loadTransactionsForContext();
+                            if (state.view === 'admin-dash') await loadAdminSummaryTotals();
+                            render();
+                        } catch (sessionErr) {
+                            console.error("Session restore failed:", sessionErr);
+                            state.isCheckingSession = false;
+                            render();
+                            showToast("Session restore failed. Please log in again.", "error");
+                        }
                     } else {
                         state.isCheckingSession = false;
+                        state.isLedgerReady = false;
                         render();
                     }
                 });
@@ -410,7 +590,10 @@
                 console.error("Critical Connection Error:", err);
                 state.view = 'landing';
                 state.error = "Ledger Connection Failed.";
+                state.isCheckingSession = false;
+                state.isLedgerReady = false;
                 render();
+                showToast("Ledger connection failed. Please refresh or try again.", "error");
             }
         }
 
@@ -428,10 +611,10 @@
         async function checkPersistentSession(user) {
             const sessionRef = doc(db, 'artifacts', appId, 'users', user.uid, 'session', 'current');
             const snap = await getDoc(sessionRef);
-            if (snap.exists()) {
-                const sessionData = snap.data();
+            const sessionData = snap.exists() ? snap.data() : readLocalSession();
+            if (sessionData) {
                 if (sessionData.type === 'admin') state.view = 'admin-dash';
-                else if (sessionData.type === 'client') {
+                else if (sessionData.type === 'client' && sessionData.clientId) {
                     const clientSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'clients', sessionData.clientId));
                     if (clientSnap.exists()) {
                         state.currentClient = { id: clientSnap.id, ...clientSnap.data() };
@@ -451,11 +634,6 @@
                     const fresh = state.clients.find(c => c.id === state.currentClient.id);
                     if (fresh) state.currentClient = fresh;
                 }
-                render();
-            });
-
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), (snap) => {
-                state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             });
 
@@ -764,6 +942,7 @@
 
         function renderAuthForm(type) {
             const isAdmin = type === 'admin';
+            const ledgerNotice = state.isLedgerReady ? '' : `<p class="text-[9px] font-black text-center uppercase tracking-widest text-ajo-brown bg-ajo-cream rounded-2xl px-4 py-3">Secure ledger is connecting...</p>`;
             return `
                 <div class="min-h-screen bg-ajo-cream flex items-center justify-center p-6">
                     <div class="w-full max-w-md bg-white rounded-[3rem] p-12 shadow-2xl border border-ajo-brown/5 animate-in zoom-in duration-300">
@@ -778,10 +957,19 @@
                             </div>
                             <div class="space-y-2">
                                 <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">Access Password</label>
-                                <input type="password" id="authPass" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-5 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" placeholder="••••••••" required>
+                                <div class="relative">
+                                    <input type="password" id="authPass" class="w-full bg-ajo-cream/50 rounded-2xl pl-6 pr-24 py-5 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" placeholder="••••••••" required>
+                                    <button type="button" onclick="window.togglePasswordVisibility('authPass')" class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-zinc-400 hover:text-ajo-brown transition-colors">
+                                        <i id="authPass-toggle-icon" data-lucide="eye" size="14"></i>
+                                        <span id="authPass-toggle-label">Show</span>
+                                    </button>
+                                </div>
                             </div>
+                            ${ledgerNotice}
                             ${state.error ? `<p class="text-red-500 text-[10px] font-bold text-center uppercase tracking-widest">${state.error}</p>` : ''}
-                            <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-ajo-brown transition-all">Verify & Login</button>
+                            <button type="submit" ${state.isProcessing ? 'disabled' : ''} class="w-full py-6 bg-ajo-black text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-ajo-brown transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                ${state.isProcessing ? 'Processing...' : 'Verify & Login'}
+                            </button>
                         </form>
                         <button onclick="window.navigate('landing')" class="w-full mt-8 text-zinc-400 text-[10px] uppercase font-black tracking-widest hover:text-ajo-black transition-colors">Return Home</button>
                     </div>
@@ -790,6 +978,7 @@
         }
 
         function renderSignup() {
+            const ledgerNotice = state.isLedgerReady ? '' : `<div class="rounded-2xl bg-ajo-cream px-5 py-4 text-center text-[9px] font-black uppercase tracking-widest text-ajo-brown">Secure ledger is connecting. Enrollment will be available shortly.</div>`;
             return `
                 <div class="min-h-screen bg-ajo-cream py-16 px-6">
                     <form id="signupForm" class="max-w-3xl mx-auto bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-ajo-brown/5 space-y-12 animate-in zoom-in duration-300">
@@ -797,6 +986,7 @@
                             <img src="${LOGO_URL}" class="w-16 h-16 rounded-2xl object-cover mx-auto mb-6 shadow-xl" alt="Logo">
                             <h2 class="text-3xl font-black text-ajo-black tracking-tighter uppercase">Join Femi Ajo</h2>
                         </div>
+                        ${ledgerNotice}
                         <div class="space-y-8">
                             <p class="text-[10px] font-black uppercase tracking-[0.3em] text-ajo-brown border-b pb-4">Personal Information</p>
                             <div class="grid sm:grid-cols-2 gap-8">
@@ -835,7 +1025,9 @@
                             ${['daily', 'weekly', 'monthly'].map(cat => `<div class="space-y-4"><h4 class="text-[9px] font-black text-zinc-400 uppercase tracking-widest">${cat} options</h4><div class="grid sm:grid-cols-2 gap-3">${THRIFT_PLANS[cat].map(p => `<label class="flex items-center gap-4 p-5 border border-zinc-50 rounded-2xl cursor-pointer hover:bg-zinc-50 transition-all has-[:checked]:bg-ajo-cream/40"><input type="checkbox" name="sPlans" value="${p.id}" class="w-5 h-5 accent-ajo-brown"><span class="text-[11px] font-bold text-ajo-black">${p.label}</span></label>`).join('')}</div></div>`).join('')}
                         </div>
                         <div class="pt-8 space-y-4">
-                            <button type="submit" class="w-full py-6 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-ajo-brown transition-all">Submit Enrollment</button>
+                            <button type="submit" ${state.isProcessing ? 'disabled' : ''} class="w-full py-6 bg-ajo-black text-white rounded-[2.5rem] font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-ajo-brown transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                ${state.isProcessing ? 'Processing...' : 'Submit Enrollment'}
+                            </button>
                             <button type="button" onclick="window.navigate('landing')" class="w-full text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:text-red-500 transition-colors">Cancel Application</button>
                         </div>
                     </form>
@@ -856,7 +1048,13 @@
             return `
                 <div class="space-y-2">
                     <label class="text-[9px] font-black uppercase text-zinc-400 tracking-widest ml-4">${label}</label>
-                    <input type="password" id="${id}" value="${val}" class="w-full bg-ajo-cream/50 rounded-2xl px-6 py-4 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" required>
+                    <div class="relative">
+                        <input type="password" id="${id}" value="${val}" class="w-full bg-ajo-cream/50 rounded-2xl pl-6 pr-24 py-4 text-sm font-bold border-transparent focus:bg-white transition-all shadow-inner" required>
+                        <button type="button" onclick="window.togglePasswordVisibility('${id}')" class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-zinc-400 hover:text-ajo-brown transition-colors">
+                            <i id="${id}-toggle-icon" data-lucide="eye" size="14"></i>
+                            <span id="${id}-toggle-label">Show</span>
+                        </button>
+                    </div>
                     <p class="text-[8px] text-zinc-400 uppercase font-black ml-4 leading-tight">${PASSWORD_HINT}</p>
                 </div>
             `;
@@ -973,9 +1171,7 @@
         }
 
         function renderAdminSummary() {
-            const tIn = state.transactions.filter(x => x.type === 'in').reduce((a, b) => a + Number(b.amount), 0);
-            const tOut = state.transactions.filter(x => x.type === 'out').reduce((a, b) => a + Number(b.amount), 0);
-            return `<div class="space-y-12 animate-in fade-in duration-500"><div class="grid sm:grid-cols-3 gap-6">${renderStatCard('Portfolios', state.clients.length, 'users', 'Members')}${renderStatCard('Total Inflow', '₦' + tIn.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}${renderStatCard('Total Outflow', '₦' + tOut.toLocaleString(), 'arrow-up-right', 'Payouts', 'text-ajo-brown')}</div><div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b flex justify-between items-center bg-zinc-50/50"><h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Enrollments</h2><button onclick="window.navigateAdmin('clients')" class="text-[9px] text-ajo-brown font-black uppercase hover:underline">Manage All</button></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Identity</th><th class="px-10 py-6">Member Name</th><th class="px-10 py-6 text-right">Action</th></tr></thead><tbody class="divide-y divide-zinc-50">${state.clients.slice(-5).reverse().map(c => `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-6 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-10 py-6 font-black uppercase tracking-tight text-ajo-black">${c.firstName} ${c.lastName}</td><td class="px-10 py-6 text-right"><button onclick="window.recordFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase px-5 py-2.5 rounded-xl hover:bg-ajo-brown hover:text-white transition-all">Record Entry</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
+            return `<div class="space-y-12 animate-in fade-in duration-500"><div class="bg-white rounded-[2.5rem] border border-zinc-100 p-6 md:p-8 shadow-sm"><div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6"><div class="space-y-2"><p class="text-[9px] font-black uppercase text-zinc-400 tracking-[0.35em]">Summary Month</p><input type="month" value="${state.adminSummaryMonth}" onchange="window.setAdminSummaryMonth(this.value)" class="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-ajo-black outline-none focus:ring-4 focus:ring-ajo-brown/10"></div><p class="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">${state.adminSummaryCount} Entries</p></div></div><div class="grid sm:grid-cols-3 gap-6">${renderStatCard('Portfolios', state.clients.length, 'users', 'Members')}${renderStatCard('Total Inflow', '₦' + state.adminSummaryInflow.toLocaleString(), 'arrow-down-left', 'Deposits', 'text-green-600')}${renderStatCard('Total Outflow', '₦' + state.adminSummaryOutflow.toLocaleString(), 'arrow-up-right', 'Payouts', 'text-ajo-brown')}</div><div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b flex justify-between items-center bg-zinc-50/50"><h2 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">Recent Enrollments</h2><button onclick="window.navigateAdmin('clients')" class="text-[9px] text-ajo-brown font-black uppercase hover:underline">Manage All</button></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Identity</th><th class="px-10 py-6">Member Name</th><th class="px-10 py-6 text-right">Action</th></tr></thead><tbody class="divide-y divide-zinc-50">${state.clients.slice(-5).reverse().map(c => `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-6 font-mono font-bold text-ajo-brown">${c.displayId}</td><td class="px-10 py-6 font-black uppercase tracking-tight text-ajo-black">${c.firstName} ${c.lastName}</td><td class="px-10 py-6 text-right"><button onclick="window.recordFor('${c.id}')" class="bg-ajo-brown/10 text-ajo-brown font-black text-[9px] uppercase px-5 py-2.5 rounded-xl hover:bg-ajo-brown hover:text-white transition-all">Record Entry</button></td></tr>`).join('')}</tbody></table></div></div></div>`;
         }
 
         window.recordFor = (id) => { 
@@ -1259,8 +1455,9 @@
         function renderMemberSummary() {
             const c = state.currentClient;
             const t = state.transactions.filter(x => x.clientId === c.id);
-            const bal = t.reduce((acc, x) => acc + (x.type === 'in' ? Number(x.amount) : -Number(x.amount)), 0);
-            return `<div class="space-y-16 animate-in fade-in duration-500"><div class="bg-ajo-black p-12 md:p-20 rounded-[4rem] text-white relative overflow-hidden shadow-2xl"><div class="absolute -top-20 -right-20 w-80 h-80 bg-ajo-brown/10 rounded-full blur-[100px]"></div><p class="text-ajo-brown font-black uppercase text-[10px] mb-6 tracking-[0.5em]">Consolidated Balance</p><h3 class="text-6xl md:text-8xl font-black mb-12 tracking-tighter">₦${bal.toLocaleString()}</h3><div class="flex flex-wrap gap-4"><div class="px-6 py-3 bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 font-mono">LEDGER: ${c.displayId}</div><div class="px-6 py-3 bg-ajo-brown rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Cycles</div></div></div><div class="space-y-10"><div class="flex items-center gap-4"><div class="w-2 h-8 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">Savings Portfolio</h3></div><div class="grid gap-10">${['daily', 'weekly', 'monthly'].map(catId => { const plans = [...THRIFT_PLANS[catId], ...state.customPlans[catId]].filter(p => (c.plans || []).includes(p.id)); if (plans.length === 0) return ''; return `<div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b bg-zinc-50/50 flex justify-between items-center"><h4 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">${catId} Series</h4></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Target Plan</th><th class="px-10 py-6 text-center">Progress</th><th class="px-10 py-6 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => { const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id); const pVal = pT.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0); const progress = Math.min((pVal / p.packValue) * 100, 100); return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-8 font-black text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-10 py-8"><div class="flex items-center justify-center gap-4"><div class="w-40 bg-zinc-100 h-2 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000" style="width: ${progress}%"></div></div><span class="text-[10px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-10 py-8 text-right font-black text-sm tracking-tighter text-ajo-black">₦${pVal.toLocaleString()}</td></tr>`; }).join('')}</tbody></table></div></div>`; }).join('')}</div></div></div>`;
+            const totalDeposits = t.filter(x => x.type === 'in').reduce((acc, x) => acc + Number(x.amount), 0);
+            const totalPayouts = t.filter(x => x.type === 'out').reduce((acc, x) => acc + Number(x.amount), 0);
+            return `<div class="space-y-16 animate-in fade-in duration-500"><div class="grid md:grid-cols-2 gap-6"><div class="bg-white p-8 md:p-10 rounded-[3rem] border border-zinc-100 shadow-sm"><p class="text-green-700 font-black uppercase text-[10px] mb-4 tracking-[0.4em]">Deposit</p><h3 class="text-4xl md:text-5xl font-black tracking-tighter text-green-700">₦${totalDeposits.toLocaleString()}</h3></div><div class="bg-white p-8 md:p-10 rounded-[3rem] border border-zinc-100 shadow-sm"><p class="text-ajo-brown font-black uppercase text-[10px] mb-4 tracking-[0.4em]">Payout</p><h3 class="text-4xl md:text-5xl font-black tracking-tighter text-ajo-brown">₦${totalPayouts.toLocaleString()}</h3></div></div><div class="flex flex-wrap gap-4"><div class="px-6 py-3 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/5 font-mono">LEDGER: ${c.displayId}</div><div class="px-6 py-3 bg-ajo-brown text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">${(c.plans || []).length} Active Cycles</div></div><div class="space-y-10"><div class="flex items-center gap-4"><div class="w-2 h-8 bg-ajo-brown rounded-full"></div><h3 class="font-black uppercase text-[10px] tracking-[0.3em] text-ajo-black">Savings Portfolio</h3></div><div class="grid gap-10">${['daily', 'weekly', 'monthly'].map(catId => { const plans = [...THRIFT_PLANS[catId], ...state.customPlans[catId]].filter(p => (c.plans || []).includes(p.id)); if (plans.length === 0) return ''; return `<div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden"><div class="p-8 border-b bg-zinc-50/50 flex justify-between items-center"><h4 class="font-black text-[10px] uppercase tracking-widest text-zinc-400">${catId} Series</h4></div><div class="overflow-x-auto"><table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-zinc-50 text-[9px] font-black uppercase border-b tracking-widest"><tr><th class="px-10 py-6">Target Plan</th><th class="px-10 py-6 text-center">Progress</th><th class="px-10 py-6 text-right">Value</th></tr></thead><tbody class="divide-y divide-zinc-50">${plans.map(p => { const pT = state.transactions.filter(t => t.clientId === c.id && t.planId === p.id); const pVal = pT.reduce((acc, t) => acc + (t.type === 'in' ? Number(t.amount) : -Number(t.amount)), 0); const progress = Math.min((pVal / p.packValue) * 100, 100); return `<tr class="hover:bg-ajo-cream/10 transition-colors"><td class="px-10 py-8 font-black text-ajo-black text-sm tracking-tight">${p.label}</td><td class="px-10 py-8"><div class="flex items-center justify-center gap-4"><div class="w-40 bg-zinc-100 h-2 rounded-full overflow-hidden shadow-inner"><div class="bg-ajo-brown h-full transition-all duration-1000" style="width: ${progress}%"></div></div><span class="text-[10px] font-black text-zinc-400">${Math.round(progress)}%</span></div></td><td class="px-10 py-8 text-right font-black text-sm tracking-tighter text-ajo-black">₦${pVal.toLocaleString()}</td></tr>`; }).join('')}</tbody></table></div></div>`; }).join('')}</div></div></div>`;
         }
 
         function renderMemberProfile() {
@@ -1305,16 +1502,21 @@
         function renderReadOnlyItem(l, v) { return `<div><p class="text-[10px] font-black uppercase text-zinc-300 tracking-widest mb-2">${l}</p><p class="text-sm font-black text-ajo-black uppercase tracking-tight opacity-70">${v}</p></div>`; }
 
         function renderLedger(transactions, isClient = false) {
-            const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const filtered = isClient
+                ? transactions.filter(t => (t.date || '').slice(0, 7) === state.timelineMonth)
+                : transactions;
+            const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
             const isAdmin = state.view === 'admin-dash';
             const allPlans = [...THRIFT_PLANS.daily, ...THRIFT_PLANS.weekly, ...THRIFT_PLANS.monthly, ...state.customPlans.daily, ...state.customPlans.weekly, ...state.customPlans.monthly];
+            const totalIn = isClient ? sorted.filter(t => t.type === 'in').reduce((acc, t) => acc + Number(t.amount), 0) : 0;
+            const totalOut = isClient ? sorted.filter(t => t.type === 'out').reduce((acc, t) => acc + Number(t.amount), 0) : 0;
             
             return `
                 <div class="space-y-10 animate-in fade-in duration-500">
                     <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 px-4">
                         <div>
                             <h2 class="text-3xl font-black uppercase tracking-tighter text-ajo-black">Digital Ledger</h2>
-                            <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.4em] mt-1">${sorted.length} Total Entries</p>
+                            <p class="text-[10px] font-black uppercase text-zinc-400 tracking-[0.4em] mt-1">${sorted.length} ${isClient ? 'Entries This Month' : 'Total Entries'}</p>
                         </div>
                         <div class="flex flex-wrap gap-3">
                             <button onclick="window.exportLedgerPDF()" class="px-5 py-3 bg-white border border-zinc-200 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-ajo-black hover:text-white transition-all shadow-sm">
@@ -1325,6 +1527,25 @@
                             </button>
                         </div>
                     </div>
+                    ${isClient ? `
+                    <div class="bg-white rounded-[2.5rem] border border-zinc-100 p-6 md:p-8 shadow-sm">
+                        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                            <div class="space-y-2">
+                                <p class="text-[9px] font-black uppercase text-zinc-400 tracking-[0.35em]">Monthly Timeline</p>
+                                <input type="month" value="${state.timelineMonth}" onchange="window.setTimelineMonth(this.value)" class="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-ajo-black outline-none focus:ring-4 focus:ring-ajo-brown/10">
+                            </div>
+                            <div class="grid sm:grid-cols-2 gap-4 w-full lg:w-auto">
+                                <div class="px-5 py-4 rounded-2xl bg-green-50 border border-green-100">
+                                    <p class="text-[8px] font-black uppercase tracking-[0.3em] text-green-700">Deposit</p>
+                                    <p class="text-2xl font-black text-green-700 mt-1">₦${totalIn.toLocaleString()}</p>
+                                </div>
+                                <div class="px-5 py-4 rounded-2xl bg-ajo-brown/10 border border-ajo-brown/20">
+                                    <p class="text-[8px] font-black uppercase tracking-[0.3em] text-ajo-brown">Payout</p>
+                                    <p class="text-2xl font-black text-ajo-brown mt-1">₦${totalOut.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>` : ''}
                     <div class="bg-white rounded-[3rem] border border-zinc-100 shadow-sm overflow-hidden">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs whitespace-nowrap">
@@ -1373,6 +1594,12 @@
                             </table>
                         </div>
                     </div>
+                    ${isAdmin ? `
+                    <div class="flex justify-center">
+                        <button onclick="window.loadMoreAdminTransactions()" ${state.adminHasMoreTransactions && !state.isLoadingMoreTransactions ? '' : 'disabled'} class="px-8 py-4 rounded-2xl bg-white border border-zinc-200 text-[10px] font-black uppercase tracking-widest text-ajo-black shadow-sm hover:bg-ajo-black hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            ${state.isLoadingMoreTransactions ? 'Loading...' : (state.adminHasMoreTransactions ? 'Load More Entries' : 'No More Entries')}
+                        </button>
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1409,22 +1636,42 @@
         async function handleFormSubmit(e, formId) {
             e.preventDefault(); if (state.isProcessing) return; state.isProcessing = true;
             try {
+                const ledgerForms = ['clientLoginForm', 'adminLoginForm', 'signupForm', 'createMemberForm', 'editMemberForm', 'transactionEntryForm', 'memberProfileUpdateForm', 'adminSettingsForm'];
+                if (ledgerForms.includes(formId)) assertLedgerReady();
+
                 if (formId === 'adminLoginForm') {
                     const pass = document.getElementById('authPass').value;
                     if (pass === state.adminCreds) { 
                         const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
                         await setDoc(sessionRef, { type: 'admin', lastActive: new Date().toISOString() });
-                        state.view = 'admin-dash'; showToast('Admin authorized'); 
+                        saveLocalSession({ type: 'admin' });
+                        state.view = 'admin-dash';
+                        state.adminActiveView = 'dashboard';
+                        await loadTransactionsForContext();
+                        await loadAdminSummaryTotals();
+                        showToast('Admin authorized'); 
                     } else { state.error = 'Invalid credentials'; }
                 }
                 if (formId === 'clientLoginForm') {
                     const id = document.getElementById('authId').value.trim().toUpperCase();
                     const pass = document.getElementById('authPass').value;
-                    const found = state.clients.find(c => c.displayId === id && c.password === pass);
+                    let found = state.clients.find(c => c.displayId === id && c.password === pass);
+                    if (!found) {
+                        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), where('displayId', '==', id));
+                        const result = await getDocs(q);
+                        if (!result.empty) {
+                            const docSnap = result.docs[0];
+                            const candidate = { id: docSnap.id, ...docSnap.data() };
+                            if (candidate.password === pass) found = candidate;
+                        }
+                    }
                     if (found) { 
                         const sessionRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'session', 'current');
                         await setDoc(sessionRef, { type: 'client', clientId: found.id, lastActive: new Date().toISOString() });
-                        state.currentClient = found; state.view = 'client-dash'; showToast('Welcome back'); 
+                        saveLocalSession({ type: 'client', clientId: found.id });
+                        state.currentClient = found; state.view = 'client-dash';
+                        await loadTransactionsForContext();
+                        showToast('Welcome back'); 
                     } else { state.error = 'Invalid ID or password'; }
                 }
                 if (formId === 'signupForm') {
@@ -1550,10 +1797,15 @@
                         throw new Error("Proof slip required.");
                     }
 
+                    const amountValue = Number(document.getElementById('tAmt').value);
+                    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+                        throw new Error("Enter a valid transaction amount.");
+                    }
+
                     const transData = { 
                         clientId: client.id, 
                         clientName: `${client.firstName} ${client.lastName}`, 
-                        amount: document.getElementById('tAmt').value, 
+                        amount: amountValue, 
                         planId: document.getElementById('tPlanSelect').value, 
                         type: state.currentTransType, 
                         proofUrl, 
@@ -1572,13 +1824,15 @@
                     }
                     state.editingTransaction = null;
                     state.adminActiveView = 'history';
+                    await loadTransactionsForContext();
+                    if (state.view === 'admin-dash') await loadAdminSummaryTotals();
                 }
                 render();
-            } catch (err) { console.error(err); showToast(err.message, 'error'); } 
+            } catch (err) { console.error(err); state.error = err.message; showToast(err.message, 'error'); } 
             finally { state.isProcessing = false; render(); }
         }
 
-        window.onload = initApp;
+        initApp();
     </script>
 </body>
 </html>
